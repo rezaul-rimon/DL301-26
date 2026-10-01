@@ -1,0 +1,178 @@
+#include <Arduino.h>
+#include <ModbusMaster.h>
+
+// ======================================================
+// ESP32 UART2
+// ======================================================
+#define RS485_RX 13
+#define RS485_TX 14
+
+// HW-519 DE and RE control pin
+// Connect DE and RE together on the HW-519
+#define RS485_DE_RE 4
+
+// ======================================================
+// BGT-LD Modbus settings
+// ======================================================
+#define MODBUS_SLAVE_ID 1
+#define MODBUS_BAUD     9600
+
+ModbusMaster node;
+
+// ------------------------------------------------------
+// RS485 transmit control
+// ------------------------------------------------------
+void preTransmission()
+{
+  digitalWrite(RS485_DE_RE, HIGH);
+}
+
+void postTransmission()
+{
+  digitalWrite(RS485_DE_RE, LOW);
+}
+
+// ======================================================
+// SETUP
+// ======================================================
+void setup()
+{
+  Serial.begin(115200);
+
+  pinMode(RS485_DE_RE, OUTPUT);
+  digitalWrite(RS485_DE_RE, LOW);
+
+  // ESP32 UART2
+  Serial2.begin(
+    MODBUS_BAUD,
+    SERIAL_8N1,
+    RS485_RX,
+    RS485_TX
+  );
+
+  // Modbus slave
+  node.begin(MODBUS_SLAVE_ID, Serial2);
+
+  node.preTransmission(preTransmission);
+  node.postTransmission(postTransmission);
+
+  Serial.println();
+  Serial.println("======================================");
+  Serial.println(" BGT-LD Lightning Detector");
+  Serial.println(" RS485 Modbus RTU");
+  Serial.println("======================================");
+  Serial.println();
+
+  delay(1000);
+}
+
+// ======================================================
+// READ SENSOR
+// ======================================================
+void readLightningSensor()
+{
+  /*
+     Read registers 0x0000 through 0x000B
+
+     Function:
+       0x04 = Read Input Registers
+
+     12 registers total
+  */
+
+  uint8_t result = node.readInputRegisters(0x0000, 12);
+
+  if (result != node.ku8MBSuccess)
+  {
+    Serial.print("Modbus read failed. Error = 0x");
+    Serial.println(result, HEX);
+    return;
+  }
+
+  // ----------------------------------------------------
+  // Register values
+  // ----------------------------------------------------
+
+  uint16_t verifyStatus       = node.getResponseBuffer(0);
+  uint16_t strikeLastRead     = node.getResponseBuffer(1);
+  uint16_t noiseLastRead      = node.getResponseBuffer(2);
+  uint16_t disturberLastRead  = node.getResponseBuffer(3);
+  uint16_t distanceKm         = node.getResponseBuffer(4);
+
+  uint16_t energyHigh         = node.getResponseBuffer(5);
+  uint16_t energyLow          = node.getResponseBuffer(6);
+
+  uint16_t strikes10min       = node.getResponseBuffer(7);
+  uint16_t strikes30min       = node.getResponseBuffer(8);
+  uint16_t strikes60min       = node.getResponseBuffer(9);
+
+  uint16_t noise60min         = node.getResponseBuffer(10);
+  uint16_t disturber60min     = node.getResponseBuffer(11);
+
+  // ----------------------------------------------------
+  // Combine strike energy
+  // ----------------------------------------------------
+  uint32_t strikeEnergy =
+      ((uint32_t)energyHigh << 16) |
+      energyLow;
+
+  // ====================================================
+  // PRINT DATA
+  // ====================================================
+
+  Serial.println("--------------------------------------");
+
+  Serial.print("Verify Status       : 0x");
+  Serial.println(verifyStatus, HEX);
+
+  Serial.print("Strike Last Read    : ");
+  Serial.println(strikeLastRead);
+
+  Serial.print("Noise Last Read     : ");
+  Serial.println(noiseLastRead);
+
+  Serial.print("Disturber Last Read : ");
+  Serial.println(disturberLastRead);
+
+  Serial.print("Distance            : ");
+
+  if (distanceKm == 63)
+  {
+    Serial.println("Out of range");
+  }
+  else
+  {
+    Serial.print(distanceKm);
+    Serial.println(" km");
+  }
+
+  Serial.print("Strike Energy       : ");
+  Serial.println(strikeEnergy);
+
+  Serial.print("Strikes 10 min      : ");
+  Serial.println(strikes10min);
+
+  Serial.print("Strikes 30 min      : ");
+  Serial.println(strikes30min);
+
+  Serial.print("Strikes 60 min      : ");
+  Serial.println(strikes60min);
+
+  Serial.print("Noise 60 min        : ");
+  Serial.println(noise60min);
+
+  Serial.print("Disturber 60 min    : ");
+  Serial.println(disturber60min);
+
+  Serial.println("--------------------------------------");
+}
+
+// ======================================================
+// LOOP
+// ======================================================
+void loop()
+{
+  readLightningSensor();
+
+  delay(5000);
+}

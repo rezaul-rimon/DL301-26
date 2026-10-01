@@ -1,0 +1,119 @@
+//uint-16
+{
+    "enabled": true,
+    "alias": "temperature",
+    "unit": "C",
+    "register_type": "input",
+    "address": "0x0000",
+    "scale_factor": 0.1,
+    "data_type": "uint16"
+}
+
+//int16 with offset
+{
+    "enabled": true,
+    "alias": "power",
+    "unit": "W",
+    "register_type": "input",
+    "address": "0x0010",
+    "scale_factor": 1.0,
+    "offset": -50.0,
+    "data_type": "int16"
+}
+
+//uint16 byte swpap (very rare case)
+{
+    "enabled": true,
+    "alias": "status",
+    "register_type": "input",
+    "address": "0x0000",
+    "scale_factor": 1.0,
+    "data_type": "uint16",
+    "byte_swap": true
+}
+
+//uint16 byte swpap with offset (very rare case)
+{
+    "enabled": true,
+    "alias": "pressure",
+    "unit": "hPa",
+    "register_type": "input",
+    "address": "0x0000",
+    "scale_factor": 0.1,
+    "offset": -100.0,
+    "data_type": "uint16"
+}
+
+
+//uint32 little endian
+{
+    "enabled": true,
+    "alias": "energy_kwh",
+    "unit": "kWh",
+    "register_type": "input",
+    "address": "0x0030",
+    "scale_factor": 0.1,
+    "data_type": "uint32",
+    "word_order": "high_low"
+}
+
+//uint32 big endian
+{
+    "enabled": true,
+    "alias": "energy_kwh",
+    "unit": "kWh",
+    "register_type": "input",
+    "address": "0x0030",
+    "scale_factor": 0.1,
+    "data_type": "uint32",
+    "word_order": "low_high"
+}
+
+//int32
+{
+    "enabled": true,
+    "alias": "power_flow",
+    "unit": "W",
+    "register_type": "input",
+    "address": "0x0020",
+    "scale_factor": 1.0,
+    "data_type": "int32",
+    "word_order": "high_low"
+}
+
+//float32 little enian
+{
+    "enabled": true,
+    "alias": "voltage",
+    "unit": "V",
+    "register_type": "input",
+    "address": "0x0010",
+    "scale_factor": 1.0,
+    "data_type": "float32",
+    "word_order": "high_low"
+}
+
+//float32 big endian
+{
+    "enabled": true,
+    "alias": "voltage",
+    "unit": "V",
+    "register_type": "input",
+    "address": "0x0010",
+    "scale_factor": 1.0,
+    "data_type": "float32",
+    "word_order": "low_high"
+}
+
+//unit64 little endian
+{
+    "enabled": true,
+    "alias": "total_energy",
+    "unit": "Wh",
+    "register_type": "input",
+    "address": "0x0100",
+    "scale_factor": 1.0,
+    "data_type": "uint64",
+    "word_order": "high_low"
+}
+

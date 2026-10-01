@@ -1,0 +1,403 @@
+#include "energy_meter.h"
+
+// ============================================================
+// Global objects
+// ============================================================
+ModbusMaster node;
+SemaphoreHandle_t energyMutex = NULL;
+
+char em_data[EM_DATA_BUFFER_SIZE];
+
+EnergyMeterData emData = {};   // zero-initialized
+
+// ============================================================
+// RS485 direction helpers (optional)
+// ============================================================
+static inline void rs485TxMode() {
+#ifdef RS485_DE_RE_PIN
+    digitalWrite(RS485_DE_RE_PIN, HIGH);
+#endif
+}
+
+static inline void rs485RxMode() {
+#ifdef RS485_DE_RE_PIN
+    digitalWrite(RS485_DE_RE_PIN, LOW);
+#endif
+}
+
+// ============================================================
+// Setup
+// ============================================================
+void energy_meter_setup() {
+#ifdef RS485_DE_RE_PIN
+    pinMode(RS485_DE_RE_PIN, OUTPUT);
+    rs485RxMode();
+#endif
+
+    Serial2.begin(RS485_BAUD, SERIAL_8N1, RS485_RX, RS485_TX);
+    node.begin(MODBUS_SLAVE_ID, Serial2);
+    // node.setTimeout() is not available in this library version
+
+    if (energyMutex == NULL) {
+        energyMutex = xSemaphoreCreateMutex();
+        if (energyMutex == NULL) {
+            Serial.println("Energy mutex creation failed!");
+        }
+    }
+
+    Serial.printf("Energy meter initialized (slave=%d, baud=%d)\n",
+                  MODBUS_SLAVE_ID, RS485_BAUD);
+}
+
+// ============================================================
+// readModbusData — Selec MFM384 (float, 2 registers)
+// ============================================================
+#ifdef USE_SELEC_MFM384
+float readModbusData(uint16_t regAddress, uint8_t maxRetries) {
+    float lastGood = 0.0f;
+
+    for (uint8_t attempt = 0; attempt < maxRetries; attempt++) {
+        rs485TxMode();
+        uint8_t result = node.readInputRegisters(regAddress, 2);
+        rs485RxMode();
+
+        if (result == node.ku8MBSuccess) {
+            uint16_t lowWord  = node.getResponseBuffer(0);
+            uint16_t highWord = node.getResponseBuffer(1);
+
+            union {
+                uint32_t intVal;
+                float floatVal;
+            } converter;
+
+            converter.intVal = ((uint32_t)highWord << 16) | lowWord;
+
+            if (!isnan(converter.floatVal) && !isinf(converter.floatVal)) {
+                return converter.floatVal;
+            }
+        }
+        delay(20);
+    }
+
+    Serial.printf("Modbus Read FAILED: Reg 0x%04X\n", regAddress);
+    return NAN;
+}
+#endif
+
+// ============================================================
+// readModbusData — DZS500 (int, 1 register)
+// ============================================================
+#ifdef USE_DZ81_DZS500
+int readModbusData(uint16_t regAddress, uint8_t maxRetries) {
+    for (uint8_t attempt = 0; attempt < maxRetries; attempt++) {
+        rs485TxMode();
+        uint8_t result = node.readHoldingRegisters(regAddress, 1);
+        rs485RxMode();
+
+        if (result == node.ku8MBSuccess) {
+            return (int)node.getResponseBuffer(0);
+        }
+        delay(20);
+    }
+    Serial.printf("Modbus Read FAILED: Reg 0x%04X\n", regAddress);
+    return -1;
+}
+#endif
+
+// ============================================================
+// Batch reader — reads N contiguous 16-bit registers
+// (Optimized: fewer transactions than per-register reads)
+// ============================================================
+#ifdef USE_SELEC_MFM384
+static bool readBatch(uint16_t startAddr, uint16_t count,
+                      uint16_t* buffer, uint8_t maxRetries) {
+    for (uint8_t attempt = 0; attempt < maxRetries; attempt++) {
+        rs485TxMode();
+        uint8_t result = node.readInputRegisters(startAddr, count);
+        rs485RxMode();
+
+        if (result == node.ku8MBSuccess) {
+            for (uint16_t i = 0; i < count; i++) {
+                buffer[i] = node.getResponseBuffer(i);
+            }
+            return true;
+        }
+        delay(20);
+    }
+    return false;
+}
+
+// Helper: convert two 16-bit registers into a float (LSW first)
+static float regsToFloat(uint16_t lowWord, uint16_t highWord) {
+    union {
+        uint32_t intVal;
+        float floatVal;
+    } converter;
+    converter.intVal = ((uint32_t)highWord << 16) | lowWord;
+    return converter.floatVal;
+}
+#endif
+
+// ============================================================
+// getModbusData — batch-optimized for MFM384
+// ============================================================
+#ifdef USE_SELEC_MFM384
+bool getModbusData() {
+    bool ok = false;
+    uint16_t buf[32];
+
+    // ---- Batch 1: voltages + currents + line voltages (regs 0x00..0x15) ----
+    // 0x00 = pAvolt, 0x02 = pBvolt, 0x04 = pCvolt,
+    // 0x08 = lABvolt, 0x0A = lBCvolt, 0x0C = lCAvolt,
+    // 0x10 = pAcurrent, 0x12 = pBcurrent, 0x14 = pCcurrent
+    if (readBatch(0x00, 22, buf, MODBUS_MAX_RETRIES)) {
+        emData.pAvolt   = regsToFloat(buf[0],  buf[1]);
+        emData.pBvolt   = regsToFloat(buf[2],  buf[3]);
+        emData.pCvolt   = regsToFloat(buf[4],  buf[5]);
+        emData.lABvolt  = regsToFloat(buf[8],  buf[9]);
+        emData.lBCvolt  = regsToFloat(buf[10], buf[11]);
+        emData.lCAvolt  = regsToFloat(buf[12], buf[13]);
+        emData.pAcurrent = regsToFloat(buf[16], buf[17]);
+        emData.pBcurrent = regsToFloat(buf[18], buf[19]);
+        emData.pCcurrent = regsToFloat(buf[20], buf[21]);
+        ok = true;
+    }
+
+    // ---- Non-contiguous single reads ----
+    float v;
+
+    v = readModbusData(activePower_reg_addr, MODBUS_MAX_RETRIES);
+    if (!isnan(v)) { emData.activePower = v; ok = true; }
+
+    v = readModbusData(tNetEnergy_reg_addr, MODBUS_MAX_RETRIES);
+    if (!isnan(v)) { emData.tNetEnergy = v; ok = true; }
+
+    v = readModbusData(tImpEnergy_reg_addr, MODBUS_MAX_RETRIES);
+    if (!isnan(v)) { emData.tImpEnergy = v; ok = true; }
+
+    v = readModbusData(frequency_reg_addr, MODBUS_MAX_RETRIES);
+    if (!isnan(v)) { emData.frequency = v; ok = true; }
+
+    v = readModbusData(powerfactor_reg_addr, MODBUS_MAX_RETRIES);
+    if (!isnan(v)) { emData.powerFactor = v; ok = true; }
+
+    return ok;
+}
+#elif defined(USE_DZ81_DZS500)
+bool getModbusData() {
+    bool ok = false;
+
+    int v;
+    v = readModbusData(taeHigh_reg_addr, MODBUS_MAX_RETRIES);
+    if (v >= 0) { emData.tNetEnergy = ((uint32_t)v << 16); }
+
+    v = readModbusData(taeLow_reg_addr, MODBUS_MAX_RETRIES);
+    if (v >= 0) { emData.tNetEnergy += v; }
+
+    v = readModbusData(activePower_reg_addr, MODBUS_MAX_RETRIES);
+    if (v >= 0) { emData.activePower = v; }
+
+    v = readModbusData(pAvolt_reg_addr, MODBUS_MAX_RETRIES);
+    if (v >= 0) { emData.pAvolt = v; }
+
+    v = readModbusData(pBvolt_reg_addr, MODBUS_MAX_RETRIES);
+    if (v >= 0) { emData.pBvolt = v; }
+
+    v = readModbusData(pCvolt_reg_addr, MODBUS_MAX_RETRIES);
+    if (v >= 0) { emData.pCvolt = v; }
+
+    v = readModbusData(lABvolt_reg_addr, MODBUS_MAX_RETRIES);
+    if (v >= 0) { emData.lABvolt = v; }
+
+    v = readModbusData(lBCvolt_reg_addr, MODBUS_MAX_RETRIES);
+    if (v >= 0) { emData.lBCvolt = v; }
+
+    v = readModbusData(lCAvolt_reg_addr, MODBUS_MAX_RETRIES);
+    if (v >= 0) { emData.lCAvolt = v; }
+
+    v = readModbusData(pAcurrent_reg_addr, MODBUS_MAX_RETRIES);
+    if (v >= 0) { emData.pAcurrent = v; }
+
+    v = readModbusData(pBcurrent_reg_addr, MODBUS_MAX_RETRIES);
+    if (v >= 0) { emData.pBcurrent = v; }
+
+    v = readModbusData(pCcurrent_reg_addr, MODBUS_MAX_RETRIES);
+    if (v >= 0) { emData.pCcurrent = v; }
+
+    v = readModbusData(frequency_reg_addr, MODBUS_MAX_RETRIES);
+    if (v >= 0) { emData.frequency = v; }
+
+    v = readModbusData(powerfactor_reg_addr, MODBUS_MAX_RETRIES);
+    if (v >= 0) { emData.powerFactor = v; }
+
+    ok = true;
+    return ok;
+}
+#endif
+
+// ============================================================
+// ParsingModbusData
+// ============================================================
+/*
+#ifdef USE_SELEC_MFM384
+void ParsingModbusData() {
+    snprintf(em_data, sizeof(em_data),
+             "%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f",
+             emData.tNetEnergy, emData.tImpEnergy, emData.activePower,
+             emData.pAvolt, emData.pBvolt, emData.pCvolt,
+             emData.lABvolt, emData.lBCvolt, emData.lCAvolt,
+             emData.pAcurrent, emData.pBcurrent, emData.pCcurrent,
+             emData.frequency, emData.powerFactor);
+}
+#elif defined(USE_DZ81_DZS500)
+void ParsingModbusData() {
+    float netEnergy = emData.tNetEnergy * 0.1f;
+    float impEnergy = netEnergy;
+
+    snprintf(em_data, sizeof(em_data),
+             "%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f",
+             netEnergy, impEnergy, emData.activePower * 0.1f,
+             emData.pAvolt * 0.1f, emData.pBvolt * 0.1f, emData.pCvolt * 0.1f,
+             emData.lABvolt * 0.1f, emData.lBCvolt * 0.1f, emData.lCAvolt * 0.1f,
+             emData.pAcurrent * 0.1f, emData.pBcurrent * 0.1f, emData.pCcurrent * 0.1f,
+             emData.frequency * 0.01f, emData.powerFactor * 0.001f);
+}
+#endif
+*/
+
+#ifdef USE_SELEC_MFM384
+void ParsingModbusData() {
+    static uint32_t packetCounter = 0;
+    packetCounter++;
+
+    int len = snprintf(em_data, sizeof(em_data),
+        "{"
+            "\"device_id\":\"%s\","
+            "\"type\":\"energy\","
+            "\"packet\":%lu,"
+            "\"ts\":%lu,"
+            "\"data\":{"
+                "\"net_energy\":%.2f,"
+                "\"imp_energy\":%.2f,"
+                "\"active_power\":%.2f,"
+                "\"va\":%.2f,"
+                "\"vb\":%.2f,"
+                "\"vc\":%.2f,"
+                "\"vab\":%.2f,"
+                "\"vbc\":%.2f,"
+                "\"vca\":%.2f,"
+                "\"ia\":%.2f,"
+                "\"ib\":%.2f,"
+                "\"ic\":%.2f,"
+                "\"freq\":%.2f,"
+                "\"pf\":%.2f"
+            "}"
+        "}",
+        DEVICE_ID.c_str(),
+        (unsigned long)packetCounter,
+        (unsigned long)(millis() / 1000),
+        emData.tNetEnergy,
+        emData.tImpEnergy,
+        emData.activePower,
+        emData.pAvolt, emData.pBvolt, emData.pCvolt,
+        emData.lABvolt, emData.lBCvolt, emData.lCAvolt,
+        emData.pAcurrent, emData.pBcurrent, emData.pCcurrent,
+        emData.frequency,
+        emData.powerFactor
+    );
+
+    if (len < 0 || len >= (int)sizeof(em_data)) {
+        Serial.println("Energy: JSON payload truncated!");
+    }
+}
+#elif defined(USE_DZ81_DZS500)
+void ParsingModbusData() {
+    static uint32_t packetCounter = 0;
+    packetCounter++;
+
+    float netEnergy = emData.tNetEnergy * 0.1f;
+    float impEnergy = netEnergy;
+    float ap  = emData.activePower * 0.1f;
+    float va  = emData.pAvolt * 0.1f;
+    float vb  = emData.pBvolt * 0.1f;
+    float vc  = emData.pCvolt * 0.1f;
+    float vab = emData.lABvolt * 0.1f;
+    float vbc = emData.lBCvolt * 0.1f;
+    float vca = emData.lCAvolt * 0.1f;
+    float ia  = emData.pAcurrent * 0.1f;
+    float ib  = emData.pBcurrent * 0.1f;
+    float ic  = emData.pCcurrent * 0.1f;
+    float freq = emData.frequency * 0.01f;
+    float pf   = emData.powerFactor * 0.001f;
+
+    int len = snprintf(em_data, sizeof(em_data),
+        "{"
+            "\"device_id\":\"%s\","
+            "\"type\":\"energy\","
+            "\"packet\":%lu,"
+            "\"ts\":%lu,"
+            "\"data\":{"
+                "\"net_energy\":%.2f,"
+                "\"imp_energy\":%.2f,"
+                "\"active_power\":%.2f,"
+                "\"va\":%.2f,"
+                "\"vb\":%.2f,"
+                "\"vc\":%.2f,"
+                "\"vab\":%.2f,"
+                "\"vbc\":%.2f,"
+                "\"vca\":%.2f,"
+                "\"ia\":%.2f,"
+                "\"ib\":%.2f,"
+                "\"ic\":%.2f,"
+                "\"freq\":%.2f,"
+                "\"pf\":%.2f"
+            "}"
+        "}",
+        DEVICE_ID.c_str(),
+        (unsigned long)packetCounter,
+        (unsigned long)(millis() / 1000),
+        netEnergy, impEnergy, ap,
+        va, vb, vc,
+        vab, vbc, vca,
+        ia, ib, ic,
+        freq, pf
+    );
+
+    if (len < 0 || len >= (int)sizeof(em_data)) {
+        Serial.println("Energy: JSON payload truncated!");
+    }
+}
+#endif
+
+// ============================================================
+// Convenience: get + parse + queue
+// ============================================================
+bool publishEnergyData() {
+    if (energyMutex == NULL) return false;
+
+    if (xSemaphoreTake(energyMutex, pdMS_TO_TICKS(5000)) != pdTRUE) {
+        Serial.println("Energy meter: mutex timeout");
+        return false;
+    }
+
+    bool ok = false;
+    if (getModbusData()) {
+        ParsingModbusData();
+
+        MQTTMessage emMsg;
+        strcpy(emMsg.topic, MQTT_ENERGY_DATA.c_str());
+        snprintf(emMsg.payload, sizeof(emMsg.payload), "%s", em_data);
+
+        if (xQueueSend(mqttPublishQueue, &emMsg, pdMS_TO_TICKS(100)) == pdTRUE) {
+            Serial.println("Energy meter data queued" + String(em_data));
+            ok = true;
+        } else {
+            Serial.println("Energy meter: queue send failed" + String(em_data));
+        }
+    } else {
+        Serial.println("Energy meter: getModbusData failed");
+    }
+
+    xSemaphoreGive(energyMutex);
+    return ok;
+}
