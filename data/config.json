@@ -17,6 +17,8 @@
         {
             "id": 1,
             "name": "AWS Wind Speed",
+            "sensor_enable": false,
+            "sd_card_logging": false,
 
             "modbus": {
                 "slave_id": 1,
@@ -47,6 +49,8 @@
         {
             "id": 2,
             "name": "AWS Wind Direction",
+            "sensor_enable": false,
+            "sd_card_logging": false,
 
             "modbus": {
                 "slave_id": 2,
@@ -77,6 +81,8 @@
         {
             "id": 3,
             "name": "AWS PTH",
+            "sensor_enable": true,
+            "sd_card_logging": false,
 
             "modbus": {
                 "slave_id": 3,
@@ -133,6 +139,8 @@
         {
             "id": 5,
             "name": "BGT-LD Lightning Detector",
+            "sensor_enable": false,
+            "sd_card_logging": false,
 
             "modbus": {
                 "slave_id": 5,
