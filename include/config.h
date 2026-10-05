@@ -73,10 +73,17 @@ extern String MQTT_SUB;
 // Call this once, after DEVICE_ID has been assigned
 void setupMQTTTopics();
 
+// struct MQTTMessage {
+//     char topic[96];
+//     char payload[1024];
+//     uint8_t retries;    // ← add this line
+// };
+
 struct MQTTMessage {
     char topic[96];
     char payload[1024];
-    uint8_t retries;    // ← add this line
+    uint8_t retries;
+    bool    sd_log;      // <-- add this
 };
 
 // Helper function prototype

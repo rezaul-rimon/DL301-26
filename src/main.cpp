@@ -128,7 +128,7 @@ void mainTask(void* parameter) {
 
                 Serial.println("[MAIN] Calling modbus read");
                 Serial.flush();
-                readAllModbusSensorsAndPublish();
+                readAllSensorsAndPublish();
                 Serial.println("[MAIN] Modbus read done");
                 Serial.flush();
 
@@ -174,7 +174,7 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
         // publishEnergyData();
         Serial.println("[MAIN] Calling modbus read");
         Serial.flush();
-        readAllModbusSensorsAndPublish();
+        readAllSensorsAndPublish();
         Serial.println("[MAIN] Modbus read done");
         Serial.flush();
         

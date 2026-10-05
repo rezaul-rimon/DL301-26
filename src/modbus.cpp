@@ -378,12 +378,233 @@ bool readChannel(JsonObject channel, JsonObject modbus, float &value) {
 // ============================================================
 // READ SENSOR + PUBLISH  (batch + single read modes)
 // ============================================================
-void readSensorAndPublish(JsonObject sensor) {
-    Serial.println("[SENSOR] Enter readSensorAndPublish");
-    Serial.flush();
+// void readSensorAndPublish(JsonObject sensor) {
+//     Serial.println("[SENSOR] Enter readSensorAndPublish");
+//     Serial.flush();
 
-    int sensorId = sensor["id"] | 0;
-    const char *sensorName = sensor["name"] | "Unknown Sensor";
+//     int sensorId = sensor["id"] | 0;
+//     const char *sensorName = sensor["name"] | "Unknown Sensor";
+//     JsonObject modbus = sensor["modbus"];
+
+//     int slaveId = modbus["slave_id"] | 1;
+//     int baud    = modbus["baud_rate"] | 9600;
+//     const char *parity = modbus["parity"] | "N";
+
+//     configureRS485(modbus);
+
+//     Serial.println();
+//     Serial.println("======================================");
+//     Serial.printf("Sensor : %s\n", sensorName);
+//     Serial.printf("ID     : %d\n", sensorId);
+//     Serial.printf("Slave  : %d\n", slaveId);
+//     Serial.printf("Baud   : %d\n", baud);
+//     Serial.printf("Parity : %s\n", parity);
+//     Serial.println("======================================");
+//     Serial.flush();
+
+//     // --------------------------------------------------------
+//     // BATCH MODE?
+//     // --------------------------------------------------------
+//     bool batchMode = modbus["batch_read"]["enabled"] | false;
+//     uint16_t batchBuf[64];
+//     uint16_t batchQty = 0;
+//     bool batchOk = false;
+
+//     if (batchMode) {
+//         uint16_t batchAddr = parseAddress(
+//             modbus["batch_read"]["address"] | "0x0000");
+//         batchQty = modbus["batch_read"]["quantity"] | 0;
+
+//         if (batchQty == 0 || batchQty > 64) {
+//             Serial.println("[MODBUS] Batch: invalid quantity");
+//             return;
+//         }
+
+//         const char *batchType = modbus["batch_read"]["register_type"] | "input";
+//         uint8_t fc = 0x04;
+//         if (strcmp(batchType, "holding") == 0) fc = 0x03;
+
+//         uint16_t timeout = modbus["receive_timeout_ms"] | 300;
+//         int      retries = modbus["retry_attempts"] | 3;
+
+//         Serial.printf("Batch  : addr=0x%04X qty=%u FC=0x%02X\n",
+//                       batchAddr, batchQty, fc);
+//         Serial.flush();
+
+//         for (int attempt = 1; attempt <= retries && !batchOk; attempt++) {
+//             batchOk = readRegisters(slaveId, fc, batchAddr, batchQty,
+//                                     batchBuf, timeout);
+//             if (!batchOk) {
+//                 Serial.printf("[MODBUS] batch attempt %d failed\n", attempt);
+//                 Serial.flush();
+//                 delay(50);
+//             }
+//         }
+
+//         if (!batchOk) {
+//             Serial.println("[MODBUS] Batch read FAILED, publishing error payload");
+//         } else {
+//             Serial.println("[MODBUS] Batch read OK");
+//         }
+//         Serial.flush();
+//     }
+
+//     // --------------------------------------------------------
+//     // JSON header
+//     // --------------------------------------------------------
+//         String ts  = getTimestamp14();
+//         bool   aos = getAOS();
+
+//         static char jsonBuf[1024];
+//         int len = snprintf(jsonBuf, sizeof(jsonBuf),
+//             "{\"ts\":\"%s\","
+//             "\"aos\":%s,"
+//             "\"device_id\":\"%s\","
+//             "\"type\":\"data\","
+//             "\"source\":\"modbus\","
+//             "\"sensor_id\":%d,"
+//             "\"sensor_name\":\"%s\","
+//             "\"data\":[",
+//             ts.c_str(),
+//             aos ? "true" : "false",
+//             DEVICE_ID.c_str(),
+//             sensorId,
+//             sensorName);
+
+//     if (len < 0 || len >= (int)sizeof(jsonBuf)) {
+//         Serial.println("[MODBUS] JSON header truncated!");
+//         return;
+//     }
+
+//     bool first = true;
+//     int  channelCount = 0;
+
+//     JsonArray channels = sensor["channels"];
+//     for (JsonObject channel : channels) {
+//         if (!(channel["enabled"] | false)) continue;
+
+//         const char *alias   = channel["alias"]   | "unknown";
+//         const char *unit    = channel["unit"]    | "";
+//         const char *address = channel["address"] | "0x00";
+
+//         float value = 0;
+//         bool ok = false;
+
+//         if (batchMode) {
+//             // ---- BATCH MODE ----
+//             if (batchOk) {
+//                 // Look up channel address from config
+//                 uint16_t channelAddr = parseAddress(channel["address"] | "0x00");
+
+//                 // Get the batch start address (recompute here — safe, cheap)
+//                 uint16_t batchStart = parseAddress(
+//                     modbus["batch_read"]["address"] | "0x0000");
+
+//                 if (channelAddr < batchStart) {
+//                     Serial.printf("%-22s : addr 0x%04X below batch start 0x%04X\n",
+//                                 alias, channelAddr, batchStart);
+//                     ok = false;
+//                 } else {
+//                     uint16_t regIdx = channelAddr - batchStart;
+
+//                     const char *dataType  = channel["data_type"]  | "uint16";
+//                     const char *wordOrder = channel["word_order"] | "high_low";
+//                     bool byteSwap         = channel["byte_swap"]  | false;
+//                     float scale           = channel["scale_factor"] | 1.0;
+//                     float offset          = channel["offset"]       | 0.0;
+
+//                     uint16_t width = autoWidthForType(dataType);
+
+//                     if (regIdx + width > batchQty) {
+//                         Serial.printf("%-22s : addr 0x%04X exceeds batch (idx %u + width %u > qty %u)\n",
+//                                     alias, channelAddr, regIdx, width, batchQty);
+//                         ok = false;
+//                     } else {
+//                         float raw = 0;
+//                         if (decodeRegisters(&batchBuf[regIdx], width, dataType,
+//                                             wordOrder, byteSwap, raw)) {
+//                             value = scale * raw + offset;
+//                             ok = true;
+//                         }
+//                     }
+//                 }
+//             } else {
+//                 // Batch failed entirely → all channels are error
+//                 ok = false;
+//             }
+//         } else {
+//             // ---- SINGLE READ MODE ----
+//             ok = readChannel(channel, modbus, value);
+//         }
+
+//         // ---- Serial print ----
+//         if (ok) {
+//             if (strlen(unit) > 0)
+//                 Serial.printf("%-22s : %.3f %s\n", alias, value, unit);
+//             else
+//                 Serial.printf("%-22s : %.3f\n", alias, value);
+//         } else {
+//             Serial.printf("%-22s : ERROR [%s]\n", alias, address);
+//         }
+//         Serial.flush();
+
+//         // ---- Append to JSON ----
+//         int written;
+//         if (ok) {
+//             written = snprintf(jsonBuf + len, sizeof(jsonBuf) - len,
+//                 "%s{\"alias\":\"%s\",\"value\":%.3f,\"unit\":\"%s\"}",
+//                 first ? "" : ",", alias, value, unit);
+//         } else {
+//             written = snprintf(jsonBuf + len, sizeof(jsonBuf) - len,
+//                 "%s{\"alias\":\"%s\",\"value\":\"error\",\"unit\":\"%s\"}",
+//                 first ? "" : ",", alias, unit);
+//         }
+
+//         if (written < 0 || len + written >= (int)sizeof(jsonBuf)) {
+//             Serial.println("[MODBUS] JSON truncated mid-channel!");
+//             break;
+//         }
+//         len += written;
+//         first = false;
+//         channelCount++;
+
+//         if (!batchMode) delay(30);
+//     }
+
+//     // Close JSON
+//     snprintf(jsonBuf + len, sizeof(jsonBuf) - len, "]}");
+//     Serial.println("--------------------------------------");
+//     Serial.flush();
+
+//     // ---- Publish if we had at least one channel ----
+//     if (channelCount == 0) {
+//         Serial.println("[MODBUS] No enabled channels, skipping MQTT");
+//         return;
+//     }
+
+//     if (mqttPublishQueue == NULL) {
+//         Serial.println("[MODBUS] mqttPublishQueue is NULL");
+//         return;
+//     }
+
+//     MQTTMessage msg = {};
+//     strncpy(msg.topic, MQTT_PUB.c_str(), sizeof(msg.topic) - 1);
+//     strncpy(msg.payload, jsonBuf, sizeof(msg.payload) - 1);
+//     msg.retries = 0;
+
+//     if (xQueueSend(mqttPublishQueue, &msg, pdMS_TO_TICKS(100)) == pdTRUE) {
+//         Serial.printf("[MODBUS] %s queued for MQTT (%u bytes)\n",
+//                       sensorName, (unsigned)strlen(jsonBuf));
+//     } else {
+//         Serial.println("[MODBUS] MQTT queue full");
+//     }
+//     Serial.flush();
+// }
+
+// ============================================================
+// MODBUS READER — called by dispatcher
+// ============================================================
+bool readModbusSensor(JsonObject sensor, ChannelWriter &w) {
     JsonObject modbus = sensor["modbus"];
 
     int slaveId = modbus["slave_id"] | 1;
@@ -391,16 +612,6 @@ void readSensorAndPublish(JsonObject sensor) {
     const char *parity = modbus["parity"] | "N";
 
     configureRS485(modbus);
-
-    Serial.println();
-    Serial.println("======================================");
-    Serial.printf("Sensor : %s\n", sensorName);
-    Serial.printf("ID     : %d\n", sensorId);
-    Serial.printf("Slave  : %d\n", slaveId);
-    Serial.printf("Baud   : %d\n", baud);
-    Serial.printf("Parity : %s\n", parity);
-    Serial.println("======================================");
-    Serial.flush();
 
     // --------------------------------------------------------
     // BATCH MODE?
@@ -417,7 +628,7 @@ void readSensorAndPublish(JsonObject sensor) {
 
         if (batchQty == 0 || batchQty > 64) {
             Serial.println("[MODBUS] Batch: invalid quantity");
-            return;
+            return false;
         }
 
         const char *batchType = modbus["batch_read"]["register_type"] | "input";
@@ -427,89 +638,39 @@ void readSensorAndPublish(JsonObject sensor) {
         uint16_t timeout = modbus["receive_timeout_ms"] | 300;
         int      retries = modbus["retry_attempts"] | 3;
 
-        Serial.printf("Batch  : addr=0x%04X qty=%u FC=0x%02X\n",
-                      batchAddr, batchQty, fc);
-        Serial.flush();
-
         for (int attempt = 1; attempt <= retries && !batchOk; attempt++) {
             batchOk = readRegisters(slaveId, fc, batchAddr, batchQty,
                                     batchBuf, timeout);
             if (!batchOk) {
                 Serial.printf("[MODBUS] batch attempt %d failed\n", attempt);
-                Serial.flush();
                 delay(50);
             }
         }
 
-        if (!batchOk) {
-            Serial.println("[MODBUS] Batch read FAILED, publishing error payload");
-        } else {
-            Serial.println("[MODBUS] Batch read OK");
-        }
-        Serial.flush();
+        Serial.printf("[MODBUS] batch: %s\n",
+                      batchOk ? "OK" : "FAILED");
     }
 
     // --------------------------------------------------------
-    // JSON header
+    // CHANNELS — append to writer
     // --------------------------------------------------------
-    // static char jsonBuf[1024];
-    // int len = snprintf(jsonBuf, sizeof(jsonBuf),
-    //     "{\"device_id\":\"%s\","
-    //     "\"type\":\"data\","
-    //     "\"source\":\"modbus\","
-    //     "\"sensor_id\":%d,"
-    //     "\"sensor_name\":\"%s\","
-    //     "\"data\":[",
-    //     DEVICE_ID.c_str(),
-    //     sensorId,
-    //     sensorName);
-
-        String ts  = getTimestamp14();
-        bool   aos = getAOS();
-
-        static char jsonBuf[1024];
-        int len = snprintf(jsonBuf, sizeof(jsonBuf),
-            "{\"ts\":\"%s\","
-            "\"aos\":%s,"
-            "\"device_id\":\"%s\","
-            "\"type\":\"data\","
-            "\"source\":\"modbus\","
-            "\"sensor_id\":%d,"
-            "\"sensor_name\":\"%s\","
-            "\"data\":[",
-            ts.c_str(),
-            aos ? "true" : "false",
-            DEVICE_ID.c_str(),
-            sensorId,
-            sensorName);
-
-    if (len < 0 || len >= (int)sizeof(jsonBuf)) {
-        Serial.println("[MODBUS] JSON header truncated!");
-        return;
-    }
-
-    bool first = true;
-    int  channelCount = 0;
-
     JsonArray channels = sensor["channels"];
     for (JsonObject channel : channels) {
-        if (!(channel["enabled"] | false)) continue;
+        if (!(channel["enabled"] | true)) continue;
 
-        const char *alias   = channel["alias"]   | "unknown";
-        const char *unit    = channel["unit"]    | "";
-        const char *address = channel["address"] | "0x00";
-
+        const char *alias = channel["alias"] | "unknown";
+        const char *unit  = channel["unit"]  | "";
         float value = 0;
         bool ok = false;
 
         if (batchMode) {
-            // ---- BATCH MODE ----
             if (batchOk) {
-                uint16_t regIdx = channel["register_index"] | 0xFFFF;
-                if (regIdx == 0xFFFF) {
-                    Serial.printf("%-22s : MISSING register_index\n", alias);
-                    ok = false;
-                } else {
+                uint16_t channelAddr = parseAddress(channel["address"] | "0x00");
+                uint16_t batchStart  = parseAddress(
+                    modbus["batch_read"]["address"] | "0x0000");
+
+                if (channelAddr >= batchStart) {
+                    uint16_t regIdx = channelAddr - batchStart;
                     const char *dataType  = channel["data_type"]  | "uint16";
                     const char *wordOrder = channel["word_order"] | "high_low";
                     bool byteSwap         = channel["byte_swap"]  | false;
@@ -517,12 +678,7 @@ void readSensorAndPublish(JsonObject sensor) {
                     float offset          = channel["offset"]       | 0.0;
 
                     uint16_t width = autoWidthForType(dataType);
-
-                    if (regIdx + width > batchQty) {
-                        Serial.printf("%-22s : index %u out of batch range\n",
-                                      alias, regIdx);
-                        ok = false;
-                    } else {
+                    if (regIdx + width <= batchQty) {
                         float raw = 0;
                         if (decodeRegisters(&batchBuf[regIdx], width, dataType,
                                             wordOrder, byteSwap, raw)) {
@@ -531,77 +687,22 @@ void readSensorAndPublish(JsonObject sensor) {
                         }
                     }
                 }
-            } else {
-                // Batch failed entirely → all channels are error
-                ok = false;
             }
         } else {
-            // ---- SINGLE READ MODE ----
             ok = readChannel(channel, modbus, value);
         }
 
-        // ---- Serial print ----
+        // Log + append
         if (ok) {
-            if (strlen(unit) > 0)
-                Serial.printf("%-22s : %.3f %s\n", alias, value, unit);
-            else
-                Serial.printf("%-22s : %.3f\n", alias, value);
+            Serial.printf("%-22s : %.3f %s\n", alias, value, unit);
+            appendChannel(w, alias, value, unit);
         } else {
-            Serial.printf("%-22s : ERROR [%s]\n", alias, address);
+            Serial.printf("%-22s : ERROR\n", alias);
+            appendChannelError(w, alias, unit);
         }
-        Serial.flush();
-
-        // ---- Append to JSON ----
-        int written;
-        if (ok) {
-            written = snprintf(jsonBuf + len, sizeof(jsonBuf) - len,
-                "%s{\"alias\":\"%s\",\"value\":%.3f,\"unit\":\"%s\"}",
-                first ? "" : ",", alias, value, unit);
-        } else {
-            written = snprintf(jsonBuf + len, sizeof(jsonBuf) - len,
-                "%s{\"alias\":\"%s\",\"value\":\"error\",\"unit\":\"%s\"}",
-                first ? "" : ",", alias, unit);
-        }
-
-        if (written < 0 || len + written >= (int)sizeof(jsonBuf)) {
-            Serial.println("[MODBUS] JSON truncated mid-channel!");
-            break;
-        }
-        len += written;
-        first = false;
-        channelCount++;
-
-        if (!batchMode) delay(30);
     }
 
-    // Close JSON
-    snprintf(jsonBuf + len, sizeof(jsonBuf) - len, "]}");
-    Serial.println("--------------------------------------");
-    Serial.flush();
-
-    // ---- Publish if we had at least one channel ----
-    if (channelCount == 0) {
-        Serial.println("[MODBUS] No enabled channels, skipping MQTT");
-        return;
-    }
-
-    if (mqttPublishQueue == NULL) {
-        Serial.println("[MODBUS] mqttPublishQueue is NULL");
-        return;
-    }
-
-    MQTTMessage msg = {};
-    strncpy(msg.topic, MQTT_PUB.c_str(), sizeof(msg.topic) - 1);
-    strncpy(msg.payload, jsonBuf, sizeof(msg.payload) - 1);
-    msg.retries = 0;
-
-    if (xQueueSend(mqttPublishQueue, &msg, pdMS_TO_TICKS(100)) == pdTRUE) {
-        Serial.printf("[MODBUS] %s queued for MQTT (%u bytes)\n",
-                      sensorName, (unsigned)strlen(jsonBuf));
-    } else {
-        Serial.println("[MODBUS] MQTT queue full");
-    }
-    Serial.flush();
+    return w.anyOk;
 }
 
 // ============================================================
@@ -628,7 +729,20 @@ void readSensorAndPublish(JsonObject sensor) {
 //     int idx = 0;
 //     for (JsonObject sensor : sensors) {
 //         idx++;
-//         Serial.printf("[MODBUS] >>> Sensor %d\n", idx);
+
+//         const char *name = sensor["name"] | "Unknown";
+//         bool enabled     = sensor["sensor_enable"] | true;   // default true
+//         bool sdLogging   = sensor["sd_card_logging"] | true; // default true
+
+//         if (!enabled) {
+//             Serial.printf("[MODBUS] Sensor %d (%s) DISABLED — skipping\n",
+//                           idx, name);
+//             Serial.flush();
+//             continue;
+//         }
+
+//         Serial.printf("[MODBUS] >>> Sensor %d (%s)  sd_log=%s\n",
+//                       idx, name, sdLogging ? "yes" : "no");
 //         Serial.flush();
 
 //         readSensorAndPublish(sensor);
@@ -640,50 +754,3 @@ void readSensorAndPublish(JsonObject sensor) {
 //     Serial.println("[MODBUS] Exit readAllModbusSensorsAndPublish");
 //     Serial.flush();
 // }
-
-void readAllModbusSensorsAndPublish() {
-    Serial.println("[MODBUS] Enter readAllModbusSensorsAndPublish");
-    Serial.flush();
-
-    if (config.isNull()) {
-        Serial.println("[MODBUS] FATAL: config is NULL (loadConfig not called?)");
-        return;
-    }
-
-    if (!config["sensors"].is<JsonArray>()) {
-        Serial.println("[MODBUS] FATAL: config.sensors missing or not array");
-        return;
-    }
-
-    JsonArray sensors = config["sensors"];
-    Serial.printf("[MODBUS] Sensor count: %u\n", sensors.size());
-    Serial.flush();
-
-    int idx = 0;
-    for (JsonObject sensor : sensors) {
-        idx++;
-
-        const char *name = sensor["name"] | "Unknown";
-        bool enabled     = sensor["sensor_enable"] | true;   // default true
-        bool sdLogging   = sensor["sd_card_logging"] | true; // default true
-
-        if (!enabled) {
-            Serial.printf("[MODBUS] Sensor %d (%s) DISABLED — skipping\n",
-                          idx, name);
-            Serial.flush();
-            continue;
-        }
-
-        Serial.printf("[MODBUS] >>> Sensor %d (%s)  sd_log=%s\n",
-                      idx, name, sdLogging ? "yes" : "no");
-        Serial.flush();
-
-        readSensorAndPublish(sensor);
-
-        Serial.printf("[MODBUS] <<< Sensor %d done\n", idx);
-        Serial.flush();
-    }
-
-    Serial.println("[MODBUS] Exit readAllModbusSensorsAndPublish");
-    Serial.flush();
-}

@@ -6,7 +6,7 @@
 #include "led.h"
 #include "gsm.h"
 #include "display.h"
-// #include "sensors.h"
+#include "sensors.h"
 // #include "energy_meter.h"
 #include "modbus.h"
 #include <freertos/FreeRTOS.h>

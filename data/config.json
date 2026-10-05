@@ -6,10 +6,38 @@
         "poll_interval_ms": 2000
     },
 
+    "network": {
+        "apn": "",
+        "apn_user": "",
+        "apn_pass": "",
+        "broker": "",
+        "broker_port": 1883,
+        "mqtt_user": "",
+        "mqtt_pass": "",
+        "pub_topic": "",
+        "sub_topic": "",
+        "ack_topic": ""
+    },
+
     "rs485": {
         "rx_pin": 14,
         "tx_pin": 13,
         "de_re_pin": -1
+    },
+
+    "sdi12": {
+        "sdi12_pin": 25
+    },
+
+    "i2c": {
+        "sda_pin": 21,
+        "scl_pin": 22,
+        "freq_hz": 100000
+    },
+
+    "analog": {
+        "vref": 3.3,
+        "resolution_bits": 12
     },
 
     "sensors": [
@@ -17,7 +45,9 @@
         {
             "id": 1,
             "name": "AWS Wind Speed",
+            "type": "modbus",
             "sensor_enable": false,
+            "poll_interval_ms": 30000, 
             "sd_card_logging": false,
 
             "modbus": {
@@ -33,12 +63,11 @@
 
             "channels": [
                 {
-                    "enabled": true,
                     "alias": "wind_speed",
                     "description": "Wind speed",
                     "unit": "m/s",
-                    "register_type": "holding",
                     "address": "0x0000",
+                    "register_type": "holding",
                     "data_type": "int16",
                     "scale_factor": 0.1,
                     "offset": 0.0
@@ -49,7 +78,9 @@
         {
             "id": 2,
             "name": "AWS Wind Direction",
+            "type": "modbus",
             "sensor_enable": false,
+            "poll_interval_ms": 30000, 
             "sd_card_logging": false,
 
             "modbus": {
@@ -65,12 +96,11 @@
 
             "channels": [
                 {
-                    "enabled": true,
                     "alias": "wind_direction",
                     "description": "Wind direction",
                     "unit": "degrees",
-                    "register_type": "holding",
                     "address": "0x0000",
+                    "register_type": "holding",
                     "data_type": "uint16",
                     "scale_factor": 1.0,
                     "offset": 0.0
@@ -81,7 +111,9 @@
         {
             "id": 3,
             "name": "AWS PTH",
+            "type": "modbus",
             "sensor_enable": true,
+            "poll_interval_ms": 30000, 
             "sd_card_logging": false,
 
             "modbus": {
@@ -104,42 +136,41 @@
 
             "channels": [
                 {
-                    "enabled": true,
                     "alias": "pressure",
                     "description": "Air pressure",
                     "unit": "hPa",
-                    "register_index": 0,
+                    "address": "0x0000",
                     "data_type": "uint16",
                     "scale_factor": 0.1,
                     "offset": 0.0
                 },
                 {
-                    "enabled": true,
                     "alias": "temperature",
                     "description": "Ambient temperature",
                     "unit": "C",
-                    "register_index": 1,
+                    "address": "0x0001",
                     "data_type": "uint16",
                     "scale_factor": 0.1,
                     "offset": 0.0
                 },
                 {
-                    "enabled": true,
                     "alias": "humidity",
                     "description": "Relative humidity",
                     "unit": "%RH",
-                    "register_index": 2,
+                    "address": "0x0002",
                     "data_type": "uint16",
                     "scale_factor": 0.1,
                     "offset": 0.0
                 }
             ]
         },
-        
+
         {
             "id": 5,
             "name": "BGT-LD Lightning Detector",
+            "type": "modbus",
             "sensor_enable": false,
+            "poll_interval_ms": 30000, 
             "sd_card_logging": false,
 
             "modbus": {
@@ -162,112 +193,101 @@
 
             "channels": [
                 {
-                    "enabled": true,
                     "alias": "verify_status",
                     "description": "Sensor verify status",
                     "unit": "",
-                    "register_index": 0,
+                    "address": "0x0000",
                     "data_type": "uint16",
                     "scale_factor": 1.0,
                     "offset": 0.0
                 },
                 {
-                    "enabled": true,
                     "alias": "strike_last_read",
                     "description": "Last strike timestamp",
                     "unit": "",
-                    "register_index": 1,
+                    "address": "0x0001",
                     "data_type": "uint16",
                     "scale_factor": 1.0,
                     "offset": 0.0
                 },
                 {
-                    "enabled": true,
                     "alias": "noise_last_read",
                     "description": "Last noise timestamp",
                     "unit": "",
-                    "register_index": 2,
+                    "address": "0x0002",
                     "data_type": "uint16",
                     "scale_factor": 1.0,
                     "offset": 0.0
                 },
                 {
-                    "enabled": true,
                     "alias": "disturber_last_read",
                     "description": "Last disturber timestamp",
                     "unit": "",
-                    "register_index": 3,
+                    "address": "0x0003",
                     "data_type": "uint16",
                     "scale_factor": 1.0,
                     "offset": 0.0
                 },
                 {
-                    "enabled": true,
                     "alias": "distance_km",
                     "description": "Distance to last strike",
                     "unit": "km",
-                    "register_index": 4,
+                    "address": "0x0004",
                     "data_type": "uint16",
                     "scale_factor": 1.0,
                     "offset": 0.0
                 },
                 {
-                    "enabled": true,
                     "alias": "strike_energy",
                     "description": "Last strike energy",
                     "unit": "",
-                    "register_index": 5,
+                    "address": "0x0005",
                     "data_type": "uint32",
                     "word_order": "high_low",
                     "scale_factor": 1.0,
                     "offset": 0.0
                 },
                 {
-                    "enabled": true,
                     "alias": "strikes_10min",
                     "description": "Strikes in last 10 minutes",
                     "unit": "",
-                    "register_index": 7,
+                    "address": "0x0007",
                     "data_type": "uint16",
                     "scale_factor": 1.0,
                     "offset": 0.0
                 },
                 {
-                    "enabled": true,
                     "alias": "strikes_30min",
                     "description": "Strikes in last 30 minutes",
                     "unit": "",
-                    "register_index": 8,
+                    "address": "0x0008",
                     "data_type": "uint16",
                     "scale_factor": 1.0,
                     "offset": 0.0
                 },
                 {
-                    "enabled": true,
                     "alias": "strikes_60min",
                     "description": "Strikes in last 60 minutes",
                     "unit": "",
-                    "register_index": 9,
+                    "address": "0x0009",
                     "data_type": "uint16",
                     "scale_factor": 1.0,
                     "offset": 0.0
                 },
                 {
-                    "enabled": true,
                     "alias": "noise_60min",
                     "description": "Noise events in last 60 minutes",
                     "unit": "",
-                    "register_index": 10,
+                    "address": "0x000A",
                     "data_type": "uint16",
                     "scale_factor": 1.0,
                     "offset": 0.0
                 },
                 {
-                    "enabled": true,
                     "alias": "disturber_60min",
                     "description": "Disturber events in last 60 minutes",
                     "unit": "",
-                    "register_index": 11,
+                    "address": "0x000B",
                     "data_type": "uint16",
                     "scale_factor": 1.0,
                     "offset": 0.0
