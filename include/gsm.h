@@ -13,7 +13,7 @@
 #include <PubSubClient.h>
 #include <Update.h>   // if needed for OTA, otherwise remove
 #include "led.h"
-// #include "display.h"
+#include "display.h"
 #include "config.h"   // for SerialAT, SerialMon, DEVICE_ID, MQTT_*, etc.
 
 // ==================== Configuration ====================

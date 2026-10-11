@@ -2,11 +2,13 @@
 #include "modbus.h"
 #include "timeutil.h"
 
+#include "display.h"
+
 // ============================================================
 // Globals
 // ============================================================
 HardwareSerial RS485(2);
-JsonDocument  config;
+// JsonDocument  config;
 
 // ============================================================
 // CRC16 MODBUS
@@ -109,15 +111,15 @@ bool loadConfig() {
                   (unsigned)fileSize);
 
     // ---- Dump first 200 chars ----
-    Serial.println("[CFG] --- first 200 bytes ---");
-    int shown = 0;
-    while (file.available() && shown < 200) {
-        char c = file.read();
-        Serial.write(c);
-        shown++;
-    }
-    Serial.println();
-    Serial.println("[CFG] --- end dump ---");
+    // Serial.println("[CFG] --- first 200 bytes ---");
+    // int shown = 0;
+    // while (file.available() && shown < 200) {
+    //     char c = file.read();
+    //     Serial.write(c);
+    //     shown++;
+    // }
+    // Serial.println();
+    // Serial.println("[CFG] --- end dump ---");
 
     // ---- Rewind and parse ----
     file.seek(0);
@@ -152,16 +154,22 @@ bool loadConfig() {
     return true;
 }
 
+void printConfig()
+{
+    Serial.println("\n========== CONFIGURATION ==========");
+    serializeJsonPretty(config, Serial);
+    Serial.println("\n===================================");
+}
 // ============================================================
 // CONFIGURE RS485
 // ============================================================
 void configureRS485(JsonObject modbus) {
-    int rxPin   = config["rs485"]["rx_pin"]    | 13;
-    int txPin   = config["rs485"]["tx_pin"]    | 14;
+    int rxPin   = config["rs485"]["rx_pin"]    | 14;
+    int txPin   = config["rs485"]["tx_pin"]    | 13;
     int deRePin = config["rs485"]["de_re_pin"] | -1;
 
-    int baud = modbus["baud_rate"] | 9600;
-    const char *parity = modbus["parity"]    | "N";
+    int baud = modbus["baud"] | 9600;
+    const char *parity = modbus["parity"]    | "NONE";
     int dataBits       = modbus["data_bits"] | 8;
     int stopBits       = modbus["stop_bits"] | 1;
 
@@ -278,13 +286,18 @@ static uint16_t autoWidthForType(const char *dataType) {
 }
 
 static uint32_t combine32(uint16_t *r, const char *wo) {
-    if (wo && strcmp(wo, "low_high") == 0)
+    // LITTLE_ENDIAN / LITTLE_ENDIAN_BYTE_SWAP → low word first
+    if (wo && (strcasecmp(wo, "low_high") == 0 ||
+               strcasecmp(wo, "LITTLE_ENDIAN") == 0 ||
+               strcasecmp(wo, "LITTLE_ENDIAN_BYTE_SWAP") == 0))
         return ((uint32_t)r[1] << 16) | r[0];
     return ((uint32_t)r[0] << 16) | r[1];
 }
 
 static uint64_t combine64(uint16_t *r, const char *wo) {
-    if (wo && strcmp(wo, "low_high") == 0)
+    if (wo && (strcasecmp(wo, "low_high") == 0 ||
+               strcasecmp(wo, "LITTLE_ENDIAN") == 0 ||
+               strcasecmp(wo, "LITTLE_ENDIAN_BYTE_SWAP") == 0))
         return ((uint64_t)r[3] << 48) | ((uint64_t)r[2] << 32) |
                ((uint64_t)r[1] << 16) | r[0];
     return ((uint64_t)r[0] << 48) | ((uint64_t)r[1] << 32) |
@@ -303,22 +316,22 @@ bool decodeRegisters(const uint16_t *src, uint16_t width,
         if (byteSwap) regs[i] = (regs[i] >> 8) | (regs[i] << 8);
     }
 
-    if (strcmp(dataType, "uint16") == 0) {
+    if (strcasecmp(dataType, "uint16") == 0) {
         result = (float)regs[0];
-    } else if (strcmp(dataType, "int16") == 0) {
+    } else if (strcasecmp(dataType, "int16") == 0) {
         result = (float)(int16_t)regs[0];
-    } else if (strcmp(dataType, "uint32") == 0) {
+    } else if (strcasecmp(dataType, "uint32") == 0) {
         result = (float)combine32(regs, wordOrder);
-    } else if (strcmp(dataType, "int32") == 0) {
+    } else if (strcasecmp(dataType, "int32") == 0) {
         result = (float)(int32_t)combine32(regs, wordOrder);
-    } else if (strcmp(dataType, "float32") == 0) {
+    } else if (strcasecmp(dataType, "float32") == 0) {
         uint32_t raw = combine32(regs, wordOrder);
         memcpy(&result, &raw, sizeof(result));
-    } else if (strcmp(dataType, "uint64") == 0) {
+    } else if (strcasecmp(dataType, "uint64") == 0) {
         result = (float)combine64(regs, wordOrder);
-    } else if (strcmp(dataType, "int64") == 0) {
+    } else if (strcasecmp(dataType, "int64") == 0) {
         result = (float)(int64_t)combine64(regs, wordOrder);
-    } else if (strcmp(dataType, "float64") == 0) {
+    } else if (strcasecmp(dataType, "float64") == 0) {
         uint64_t raw = combine64(regs, wordOrder);
         double d;
         memcpy(&d, &raw, sizeof(d));
@@ -333,7 +346,8 @@ bool decodeRegisters(const uint16_t *src, uint16_t width,
 // READ CHANNEL (single-read mode)
 // ============================================================
 bool readChannel(JsonObject channel, JsonObject modbus, float &value) {
-    const char *addressString = channel["address"] | "0x00";
+    // new key: "register_address" (was "address")
+    const char *addressString = channel["register_address"] | "0x00";
     uint16_t address = parseAddress(addressString);
 
     float scale  = channel["scale_factor"] | 1.0;
@@ -343,16 +357,21 @@ bool readChannel(JsonObject channel, JsonObject modbus, float &value) {
     uint16_t timeout = modbus["receive_timeout_ms"] | 300;
     int      retries = modbus["retry_attempts"] | 3;
 
-    const char *registerType = channel["register_type"] | "input";
+    // register type: new value is UPPERCASE ("HOLDING", "INPUT", ...)
+    const char *registerType = channel["register_type"] | "INPUT";
     uint8_t functionCode = 0x04;
-    if (strcmp(registerType, "holding") == 0) functionCode = 0x03;
+    if (strcasecmp(registerType, "holding") == 0) functionCode = 0x03;
 
-    const char *dataType  = channel["data_type"]  | "uint16";
-    const char *wordOrder = channel["word_order"] | "high_low";
-    bool byteSwap         = channel["byte_swap"]  | false;
+    // data type: new value is UPPERCASE ("INT16", "FLOAT32", ...)
+    const char *dataType  = channel["data_type"]  | "UINT16";
+    // byte_order replaces word_order + byte_swap
+    const char *byteOrder = channel["byte_order"] | "BIG_ENDIAN";
+    bool byteSwap = (strcasecmp(byteOrder, "BIG_ENDIAN_BYTE_SWAP") == 0 ||
+                     strcasecmp(byteOrder, "LITTLE_ENDIAN_BYTE_SWAP") == 0);
 
+    // UI gives explicit register_width; fall back to auto-width if absent
     uint16_t requiredWidth = autoWidthForType(dataType);
-    uint16_t width = channel["width"] | requiredWidth;
+    uint16_t width = channel["register_width"] | requiredWidth;
     if (width < requiredWidth) width = requiredWidth;
     if (width < 1 || width > 4) return false;
 
@@ -362,7 +381,7 @@ bool readChannel(JsonObject channel, JsonObject modbus, float &value) {
         if (readRegisters(slaveId, functionCode, address, width,
                           registers, timeout)) {
             float result = 0;
-            if (!decodeRegisters(registers, width, dataType, wordOrder,
+            if (!decodeRegisters(registers, width, dataType, byteOrder,
                                  byteSwap, result)) {
                 Serial.printf("[MODBUS] Unsupported data type: %s\n", dataType);
                 return false;
@@ -604,84 +623,217 @@ bool readChannel(JsonObject channel, JsonObject modbus, float &value) {
 // ============================================================
 // MODBUS READER — called by dispatcher
 // ============================================================
+// bool readModbusSensor(JsonObject sensor, ChannelWriter &w) {
+//     JsonObject modbus = sensor["modbus"];
+
+//     int slaveId = modbus["slave_id"] | 1;
+//     int baud    = modbus["baud"] | 9600;               // was "baud_rate"
+//     const char *parity = modbus["parity"] | "NONE";    // was "N"
+
+//     configureRS485(modbus);
+
+//     // --------------------------------------------------------
+//     // BATCH MODE? — new flat keys, no nested "batch_read" object
+//     // --------------------------------------------------------
+//     bool batchMode = modbus["batch_read"] | false;     // was modbus["batch_read"]["enabled"]
+//     uint16_t batchBuf[64];
+//     uint16_t batchQty = 0;
+//     bool batchOk = false;
+
+//     if (batchMode) {
+//         uint16_t batchAddr = parseAddress(modbus["batch_start"] | "0x0000");
+//         batchQty = modbus["batch_qty"] | 0;
+
+//         if (batchQty == 0 || batchQty > 64) {
+//             Serial.println("[MODBUS] Batch: invalid quantity");
+//             return false;
+//         }
+
+//         // register type: new value is UPPERCASE
+//         const char *batchType = modbus["batch_reg_type"] | "HOLDING";
+//         uint8_t fc = 0x04;
+//         if (strcasecmp(batchType, "holding") == 0) fc = 0x03;
+
+//         uint16_t timeout = modbus["receive_timeout_ms"] | 300;
+//         int      retries = modbus["retry_attempts"] | 3;
+
+//         for (int attempt = 1; attempt <= retries && !batchOk; attempt++) {
+//             batchOk = readRegisters(slaveId, fc, batchAddr, batchQty,
+//                                     batchBuf, timeout);
+//             if (!batchOk) {
+//                 Serial.printf("[MODBUS] batch attempt %d failed\n", attempt);
+//                 delay(50);
+//             }
+//         }
+
+//         Serial.printf("[MODBUS] batch: %s\n", batchOk ? "OK" : "FAILED");
+//     }
+
+//     // --------------------------------------------------------
+//     // CHANNELS — new key names
+//     // --------------------------------------------------------
+//     JsonArray channels = sensor["channels"];
+//     for (JsonObject channel : channels) {
+//         // UI uses "id" not "enabled" — treat every channel as active
+//         const char *alias = channel["alias"] | "unknown";
+//         const char *unit  = channel["unit"]  | "";
+//         float value = 0;
+//         bool ok = false;
+
+//         if (batchMode) {
+//             if (batchOk) {
+//                 // new key: "register_address" (was "address")
+//                 uint16_t channelAddr = parseAddress(
+//                     channel["register_address"] | "0x00");
+//                 uint16_t batchStart  = parseAddress(
+//                     modbus["batch_start"] | "0x0000");
+
+//                 if (channelAddr >= batchStart) {
+//                     uint16_t regIdx = channelAddr - batchStart;
+//                     const char *dataType  = channel["data_type"]  | "UINT16";
+//                     const char *wordOrder = channel["byte_order"] | "BIG_ENDIAN";
+//                     bool byteSwap         = false;   // handled by byte_order now
+//                     float scale           = channel["scale_factor"] | 1.0;
+//                     float offset          = channel["offset"]       | 0.0;
+
+//                     // UI gives explicit register_width
+//                     uint16_t width = channel["register_width"] | autoWidthForType(dataType);
+
+//                     if (regIdx + width <= batchQty) {
+//                         float raw = 0;
+//                         if (decodeRegisters(&batchBuf[regIdx], width, dataType,
+//                                             wordOrder, byteSwap, raw)) {
+//                             value = scale * raw + offset;
+//                             ok = true;
+//                         }
+//                     }
+//                 }
+//             }
+//         } else {
+//             ok = readChannel(channel, modbus, value);
+//         }
+
+//         if (ok) {
+//             Serial.printf("%-22s : %.3f %s\n", alias, value, unit);
+//             appendChannel(w, alias, value, unit);
+//         } else {
+//             Serial.printf("%-22s : ERROR\n", alias);
+//             appendChannelError(w, alias, unit);
+//         }
+//     }
+
+//     return w.anyOk;
+// }
+
+
+
+
 bool readModbusSensor(JsonObject sensor, ChannelWriter &w) {
     JsonObject modbus = sensor["modbus"];
 
     int slaveId = modbus["slave_id"] | 1;
-    int baud    = modbus["baud_rate"] | 9600;
-    const char *parity = modbus["parity"] | "N";
+    int baud = modbus["baud"] | 9600;
+    const char *parity = modbus["parity"] | "NONE";
 
     configureRS485(modbus);
 
-    // --------------------------------------------------------
-    // BATCH MODE?
-    // --------------------------------------------------------
-    bool batchMode = modbus["batch_read"]["enabled"] | false;
+    // ---------------- BATCH MODE ----------------
+    bool batchMode = modbus["batch_read"] | false;
     uint16_t batchBuf[64];
     uint16_t batchQty = 0;
     bool batchOk = false;
 
     if (batchMode) {
-        uint16_t batchAddr = parseAddress(
-            modbus["batch_read"]["address"] | "0x0000");
-        batchQty = modbus["batch_read"]["quantity"] | 0;
+        uint16_t batchAddr =
+            parseAddress(modbus["batch_start"] | "0x0000");
+
+        batchQty = modbus["batch_qty"] | 0;
 
         if (batchQty == 0 || batchQty > 64) {
             Serial.println("[MODBUS] Batch: invalid quantity");
             return false;
         }
 
-        const char *batchType = modbus["batch_read"]["register_type"] | "input";
+        const char *batchType =
+            modbus["batch_reg_type"] | "HOLDING";
+
         uint8_t fc = 0x04;
-        if (strcmp(batchType, "holding") == 0) fc = 0x03;
+        if (strcasecmp(batchType, "holding") == 0) {
+            fc = 0x03;
+        }
 
-        uint16_t timeout = modbus["receive_timeout_ms"] | 300;
-        int      retries = modbus["retry_attempts"] | 3;
+        uint16_t timeout =
+            modbus["receive_timeout_ms"] | 300;
+        int retries = modbus["retry_attempts"] | 3;
 
-        for (int attempt = 1; attempt <= retries && !batchOk; attempt++) {
-            batchOk = readRegisters(slaveId, fc, batchAddr, batchQty,
-                                    batchBuf, timeout);
+        for (int attempt = 1;
+             attempt <= retries && !batchOk;
+             attempt++) {
+
+            batchOk = readRegisters(
+                slaveId, fc, batchAddr, batchQty,
+                batchBuf, timeout
+            );
+
             if (!batchOk) {
-                Serial.printf("[MODBUS] batch attempt %d failed\n", attempt);
+                Serial.printf(
+                    "[MODBUS] batch attempt %d failed\n",
+                    attempt
+                );
                 delay(50);
             }
         }
 
-        Serial.printf("[MODBUS] batch: %s\n",
-                      batchOk ? "OK" : "FAILED");
+        Serial.printf(
+            "[MODBUS] batch: %s\n",
+            batchOk ? "OK" : "FAILED"
+        );
     }
 
-    // --------------------------------------------------------
-    // CHANNELS — append to writer
-    // --------------------------------------------------------
+    // ---------------- CHANNELS ----------------
     JsonArray channels = sensor["channels"];
-    for (JsonObject channel : channels) {
-        if (!(channel["enabled"] | true)) continue;
 
+    for (JsonObject channel : channels) {
         const char *alias = channel["alias"] | "unknown";
-        const char *unit  = channel["unit"]  | "";
+        const char *unit = channel["unit"] | "";
+
         float value = 0;
         bool ok = false;
 
         if (batchMode) {
             if (batchOk) {
-                uint16_t channelAddr = parseAddress(channel["address"] | "0x00");
-                uint16_t batchStart  = parseAddress(
-                    modbus["batch_read"]["address"] | "0x0000");
+                uint16_t channelAddr = parseAddress(
+                    channel["register_address"] | "0x00"
+                );
+
+                uint16_t batchStart = parseAddress(
+                    modbus["batch_start"] | "0x0000"
+                );
 
                 if (channelAddr >= batchStart) {
                     uint16_t regIdx = channelAddr - batchStart;
-                    const char *dataType  = channel["data_type"]  | "uint16";
-                    const char *wordOrder = channel["word_order"] | "high_low";
-                    bool byteSwap         = channel["byte_swap"]  | false;
-                    float scale           = channel["scale_factor"] | 1.0;
-                    float offset          = channel["offset"]       | 0.0;
 
-                    uint16_t width = autoWidthForType(dataType);
+                    const char *dataType =
+                        channel["data_type"] | "UINT16";
+                    const char *wordOrder =
+                        channel["byte_order"] | "BIG_ENDIAN";
+
+                    float scale =
+                        channel["scale_factor"] | 1.0;
+                    float offset =
+                        channel["offset"] | 0.0;
+
+                    uint16_t width =
+                        channel["register_width"] |
+                        autoWidthForType(dataType);
+
                     if (regIdx + width <= batchQty) {
                         float raw = 0;
-                        if (decodeRegisters(&batchBuf[regIdx], width, dataType,
-                                            wordOrder, byteSwap, raw)) {
+
+                        if (decodeRegisters(
+                                &batchBuf[regIdx],
+                                width, dataType,
+                                wordOrder, false, raw)) {
                             value = scale * raw + offset;
                             ok = true;
                         }
@@ -692,18 +844,70 @@ bool readModbusSensor(JsonObject sensor, ChannelWriter &w) {
             ok = readChannel(channel, modbus, value);
         }
 
-        // Log + append
         if (ok) {
-            Serial.printf("%-22s : %.3f %s\n", alias, value, unit);
+            Serial.printf(
+                "%-22s : %.3f %s\n", alias, value, unit
+            );
+
             appendChannel(w, alias, value, unit);
-        } else {
+
+            // Update the matching display field.
+            if (strcmp(alias, "airPressure") == 0) {
+                updateAirPressure(value);
+            }
+            else if (strcmp(alias, "airTemperature") == 0) {
+                updateAirTemperature(value);
+            }
+            // else if (strcmp(alias, "batteryPercentage") == 0) {
+            //     updateBatteryPercentage((int)(value + 0.5f));
+            // }
+            else if (strcmp(alias, "airHumidity") == 0) {
+                updateAirHumidity(value);
+            }
+            else if (strcmp(alias, "windSpeed") == 0) {
+                updateWindSpeed(value);
+            }
+            else if (strcmp(alias, "windDirection") == 0) {
+                updateWindDirection(value);
+            }
+            else if (strcmp(alias, "rainFall") == 0) {
+                updateRainFall(value);
+            }
+        }
+        else {
             Serial.printf("%-22s : ERROR\n", alias);
             appendChannelError(w, alias, unit);
+
+            if (strcmp(alias, "airPressure") == 0) {
+                updateAirPressure(NAN);
+            }
+            else if (strcmp(alias, "airTemperature") == 0) {
+                updateAirTemperature(NAN);
+            }
+            else if (strcmp(alias, "batteryPercentage") == 0) {
+                updateBatteryPercentage(-1);
+            }
+            else if (strcmp(alias, "airHumidity") == 0) {
+                updateAirHumidity(NAN);
+            }
+            else if (strcmp(alias, "windSpeed") == 0) {
+                updateWindSpeed(NAN);
+            }
+            else if (strcmp(alias, "windDirection") == 0) {
+                updateWindDirection(NAN);
+            }
+            else if (strcmp(alias, "rainFall") == 0) {
+                updateRainFall(NAN);
+            }
         }
     }
 
     return w.anyOk;
 }
+
+
+
+
 
 // ============================================================
 // READ ALL + PUBLISH

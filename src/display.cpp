@@ -1,5 +1,7 @@
+
 // display.cpp
 #include "display.h"
+#include <Arduino.h>
 
 // ============================================================
 // Global object definitions
@@ -14,15 +16,15 @@ Adafruit_SSD1306 display(
 );
 
 DisplayData displayData = {
-    00.0,      // solarVoltage
-    0.00,      // batteryVoltage
-    0.00,      // ph
-    0.0,     // tds
-    0.00,      // dissolvedOxygen
-    0.00,     // temperature
-    0,         // signalLevel
-    "ONLINE",  // statusText
-    50        // batteryPercent (new)
+    NAN,      // airPressure
+    NAN,      // airTemperature
+    NAN,      // airHumidity
+    NAN,      // windSpeed
+    NAN,      // windDirection
+    NAN,      // rainFall
+    0,        // signalLevel
+    "OFFLINE",// statusText
+    75        // batteryPercent (new)
 };
 
 TaskHandle_t displayTaskHandle = NULL;
@@ -79,7 +81,7 @@ static void displayBootAnimation() {
         display.println(title);
 
         display.setTextSize(1);
-        const char* model = "DL300-26";
+        const char* model = "DL301-26";
         display.getTextBounds(model, 0, 0, &x1, &y1, &w, &h);
         display.setCursor((SCREEN_WIDTH - w) / 2, 34);
         display.println(model);
@@ -103,7 +105,7 @@ static void displayBootAnimation() {
     display.println(title);
 
     display.setTextSize(1);
-    const char* model = "DL300-26";
+    const char* model = "DL301-26";
     display.getTextBounds(model, 0, 0, &x1, &y1, &w, &h);
     display.setCursor((SCREEN_WIDTH - w) / 2, 34);
     display.println(model);
@@ -131,7 +133,7 @@ static void displayWelcomeScreen() {
     display.setCursor((SCREEN_WIDTH - w) / 2, 22);
     display.println(product);
 
-    const char* model = "Model: DL300-26";
+    const char* model = "Model: DL301-26";
     display.getTextBounds(model, 0, 0, &x1, &y1, &w, &h);
     display.setCursor((SCREEN_WIDTH - w) / 2, 38);
     display.println(model);
@@ -145,6 +147,68 @@ static void displayWelcomeScreen() {
     delay(5000);
 }
 
+// static void displayHomePage() {
+//     display.clearDisplay();
+//     display.setTextColor(SSD1306_WHITE);
+//     display.setTextSize(1);
+
+//     const int LEFT  = 2;
+//     const int RIGHT = 125;
+//     const int DIV   = 63;
+
+//     // ========== TOP ROW: Battery (left), Heading (center), Signal (right) ==========
+//     drawBatteryIcon(displayData.batteryPercent);   // ✅ use percentage
+//     drawSignalBars(displayData.signalLevel);
+
+//     const char* title = "DMA_AWS";
+//     int16_t x1, y1;
+//     uint16_t w, h;
+//     display.getTextBounds(title, 0, 0, &x1, &y1, &w, &h);
+//     display.setCursor((SCREEN_WIDTH - w) / 2, 1);
+//     display.print(title);
+
+//     display.drawLine(LEFT, 10, RIGHT, 10, SSD1306_WHITE);
+
+//     display.setCursor(LEFT, 15);
+//     display.print("Status: ");
+//     display.print(displayData.statusText);
+
+//     display.drawLine(LEFT, 24, RIGHT, 24, SSD1306_WHITE);
+
+//     char buffer[20];
+
+//     snprintf(buffer, sizeof(buffer), "Prs:%.1fV", displayData.airPressure);
+//     display.setCursor(LEFT, 27);
+//     display.print(buffer);
+
+//     snprintf(buffer, sizeof(buffer), "Spd:%.2fV", displayData.airTemperature);
+//     display.setCursor(67, 27);
+//     display.print(buffer);
+
+//     display.drawLine(DIV, 25, DIV, 35, SSD1306_WHITE);
+//     display.drawLine(LEFT, 38, RIGHT, 38, SSD1306_WHITE);
+
+//     snprintf(buffer, sizeof(buffer), "Hum:%.2f", displayData.airHumidity);
+//     display.setCursor(LEFT, 41);
+//     display.print(buffer);
+
+//     snprintf(buffer, sizeof(buffer), "Tmp:%.2f", displayData.rainFall);
+//     display.setCursor(LEFT, 52);
+//     display.print(buffer);
+
+//     snprintf(buffer, sizeof(buffer), "SPD:%.0f", displayData.windSpeed);
+//     display.setCursor(67, 41);
+//     display.print(buffer);
+
+//     snprintf(buffer, sizeof(buffer), "DO:%.2f", displayData.windDirection);
+//     display.setCursor(67, 52);
+//     display.print(buffer);
+
+//     display.drawLine(DIV, 39, DIV, 63, SSD1306_WHITE);
+
+//     display.display();
+// }
+
 static void displayHomePage() {
     display.clearDisplay();
     display.setTextColor(SSD1306_WHITE);
@@ -154,58 +218,90 @@ static void displayHomePage() {
     const int RIGHT = 125;
     const int DIV   = 63;
 
-    // ========== TOP ROW: Battery (left), Heading (center), Signal (right) ==========
-    drawBatteryIcon(displayData.batteryPercent);   // ✅ use percentage
+    // =========================================================
+    // HEADER: Battery | Device Name | Signal
+    // =========================================================
+    drawBatteryIcon(displayData.batteryPercent);
     drawSignalBars(displayData.signalLevel);
 
-    const char* title = "DataLogger";
+    const char* title = "DMA_AWS";
+
     int16_t x1, y1;
     uint16_t w, h;
+
     display.getTextBounds(title, 0, 0, &x1, &y1, &w, &h);
     display.setCursor((SCREEN_WIDTH - w) / 2, 1);
     display.print(title);
 
+    // Header separator
     display.drawLine(LEFT, 10, RIGHT, 10, SSD1306_WHITE);
 
-    display.setCursor(LEFT, 15);
+    // =========================================================
+    // DEVICE STATUS
+    // =========================================================
+    display.setCursor(LEFT, 13);
     display.print("Status: ");
     display.print(displayData.statusText);
 
-    display.drawLine(LEFT, 24, RIGHT, 24, SSD1306_WHITE);
+    // Status separator
+    display.drawLine(LEFT, 23, RIGHT, 23, SSD1306_WHITE);
 
+    // =========================================================
+    // TEMPERATURE | WIND SPEED
+    // =========================================================
     char buffer[20];
 
-    snprintf(buffer, sizeof(buffer), "Sol:%.1fV", displayData.solarVoltage);
-    display.setCursor(LEFT, 27);
+    snprintf(buffer, sizeof(buffer), "Tmp:%.2f", displayData.airTemperature);
+    display.setCursor(LEFT, 26);
     display.print(buffer);
 
-    snprintf(buffer, sizeof(buffer), "Bat:%.2fV", displayData.batteryVoltage);
-    display.setCursor(67, 27);
+    snprintf(buffer, sizeof(buffer), "Wsp:%.1f", displayData.windSpeed);
+    display.setCursor(67, 26);
     display.print(buffer);
 
-    display.drawLine(DIV, 25, DIV, 35, SSD1306_WHITE);
-    display.drawLine(LEFT, 38, RIGHT, 38, SSD1306_WHITE);
+    // Middle vertical divider
+    display.drawLine(DIV, 24, DIV, 34, SSD1306_WHITE);
 
-    snprintf(buffer, sizeof(buffer), "pH:%.2f", displayData.ph);
-    display.setCursor(LEFT, 41);
+    // Horizontal separator
+    display.drawLine(LEFT, 35, RIGHT, 35, SSD1306_WHITE);
+
+    // =========================================================
+    // HUMIDITY | WIND DIRECTION
+    // =========================================================
+    snprintf(buffer, sizeof(buffer), "Hum:%.2f", displayData.airHumidity);
+    display.setCursor(LEFT, 38);
     display.print(buffer);
 
-    snprintf(buffer, sizeof(buffer), "Tmp:%.2f", displayData.temperature);
-    display.setCursor(LEFT, 52);
+    snprintf(buffer, sizeof(buffer), "Wdr:%.1f", displayData.windDirection);
+    display.setCursor(67, 38);
     display.print(buffer);
 
-    snprintf(buffer, sizeof(buffer), "TDS:%.0f", displayData.tds);
-    display.setCursor(67, 41);
+    // Middle vertical divider
+    display.drawLine(DIV, 36, DIV, 46, SSD1306_WHITE);
+
+    // Horizontal separator
+    display.drawLine(LEFT, 47, RIGHT, 47, SSD1306_WHITE);
+
+    // =========================================================
+    // PRESSURE | RAIN FALL
+    // =========================================================
+    snprintf(buffer, sizeof(buffer), "Prs:%.0f", displayData.airPressure);
+    display.setCursor(LEFT, 50);
     display.print(buffer);
 
-    snprintf(buffer, sizeof(buffer), "DO:%.2f", displayData.dissolvedOxygen);
-    display.setCursor(67, 52);
+    snprintf(buffer, sizeof(buffer), "Rn:%.1f", displayData.rainFall);
+    display.setCursor(67, 50);
     display.print(buffer);
 
-    display.drawLine(DIV, 39, DIV, 63, SSD1306_WHITE);
+    // Middle vertical divider
+    display.drawLine(DIV, 48, DIV, 60, SSD1306_WHITE);
+
+    // Bottom separator
+    display.drawLine(LEFT, 61, RIGHT, 61, SSD1306_WHITE);
 
     display.display();
 }
+
 
 // ============================================================
 // Public functions
@@ -248,13 +344,13 @@ void sendDisplayCommand(DisplayCommandType type) {
     xQueueSend(displayCommandQueue, &type, pdMS_TO_TICKS(10));
 }
 
-void updateSolarVoltage(float value) {
-    displayData.solarVoltage = value;
+void updateAirPressure(float value) {
+    displayData.airPressure = value;
     sendDisplayCommand(DISPLAY_UPDATE_HOME);
 }
 
-void updateBatteryVoltage(float value) {
-    displayData.batteryVoltage = value;
+void updateAirTemperature(float value) {
+    displayData.airTemperature = value;
     sendDisplayCommand(DISPLAY_UPDATE_HOME);
 }
 
@@ -265,23 +361,23 @@ void updateBatteryPercentage(int percent) {
     sendDisplayCommand(DISPLAY_UPDATE_HOME);
 }
 
-void updatePH(float value) {
-    displayData.ph = value;
+void updateAirHumidity(float value) {
+    displayData.airHumidity = value;
     sendDisplayCommand(DISPLAY_UPDATE_HOME);
 }
 
-void updateTDS(float value) {
-    displayData.tds = value;
+void updateWindSpeed(float value) {
+    displayData.windSpeed = value;
     sendDisplayCommand(DISPLAY_UPDATE_HOME);
 }
 
-void updateDissolvedOxygen(float value) {
-    displayData.dissolvedOxygen = value;
+void updateWindDirection(float value) {
+    displayData.windDirection = value;
     sendDisplayCommand(DISPLAY_UPDATE_HOME);
 }
 
-void updateTemperature(float value) {
-    displayData.temperature = value;
+void updateRainFall(float value) {
+    displayData.rainFall = value;
     sendDisplayCommand(DISPLAY_UPDATE_HOME);
 }
 
@@ -297,21 +393,14 @@ void updateStatus(const char* status) {
     sendDisplayCommand(DISPLAY_UPDATE_HOME);
 }
 
-void updateAllDisplayValues(float solar, float batt, float ph, float tds, float doVal, float temp, int signal, const char* status) {
-    displayData.solarVoltage = solar;
-    displayData.batteryVoltage = batt;
+void updateAllDisplayValues(float pressure, float temperature, float humidity, float w_speed, float w_direction, float rainfall, int signal, const char* status) {
 
-    float minV = 3.0f;
-    float maxV = 4.2f;
-    int battPercent = (int)((batt - minV) / (maxV - minV) * 100.0f);
-    if (battPercent < 0) battPercent = 0;
-    if (battPercent > 100) battPercent = 100;
-    displayData.batteryPercent = battPercent;
-
-    displayData.ph = ph;
-    displayData.tds = tds;
-    displayData.dissolvedOxygen = doVal;
-    displayData.temperature = temp;
+    displayData.airPressure = pressure;
+    displayData.airTemperature = temperature;
+    displayData.airHumidity = humidity;
+    displayData.windSpeed = w_speed;
+    displayData.windDirection = w_direction;
+    displayData.rainFall = rainfall;
 
     if (signal < 0) signal = 0;
     if (signal > 5) signal = 5;
@@ -396,6 +485,7 @@ int rssiToSignalLevel(int rssi) {
     if (rssi > 30) return 5;
 
     // Map 10..30 → 2..5
-    return map(rssi, 10, 30, 2, 5);
+    // return map(rssi, 10, 30, 2, 5);
+    return 2 + ((rssi - 10) * 3) / 20;
 }
 

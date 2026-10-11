@@ -1,6 +1,6 @@
 #pragma once
 
-#define DISPLAY_WAKE_TIMEOUT_MS   20 * 1000   // or 20000 for 30 seconds
+#define DISPLAY_WAKE_TIMEOUT_MS   60 * 1000   // or 20000 for 30 seconds
 
 #include <Arduino.h>
 #include <SPI.h>
@@ -10,11 +10,26 @@
 #define SCREEN_WIDTH    128
 #define SCREEN_HEIGHT   64
 
+//main (follow here)
+// #define OLED_MOSI       23
+// #define OLED_CLK        18
+// #define OLED_DC         13
+// #define OLED_CS         5
+// #define OLED_RST        14
+
+//data logger - AWS
 #define OLED_MOSI       23
 #define OLED_CLK        18
-#define OLED_DC         13
-#define OLED_CS         5
-#define OLED_RST        14
+#define OLED_DC         26
+#define OLED_CS         25
+#define OLED_RST        2
+
+//for testing board
+// #define OLED_MOSI       23
+// #define OLED_CLK        18
+// #define OLED_DC         14
+// #define OLED_CS         26
+// #define OLED_RST        13
 
 #define DISPLAY_TASK_PRIORITY   1
 #define DISPLAY_CMD_QUEUE_SIZE  10
@@ -30,12 +45,12 @@ enum DisplayCommandType {
 };
 
 struct DisplayData {
-    float solarVoltage;
-    float batteryVoltage;
-    float ph;
-    float tds;
-    float dissolvedOxygen;   // DO
-    float temperature;
+    float airPressure;
+    float airTemperature;
+    float airHumidity;
+    float windSpeed;
+    float windDirection;   // DO
+    float rainFall;
     int   signalLevel;       // 0..5
     const char* statusText;
     int   batteryPercent;    // 0..100   ✅ <-- added
@@ -51,16 +66,17 @@ void sendDisplayCommand(DisplayCommandType type);
 void displayTask(void* parameter);
 
 // Update functions
-void updateSolarVoltage(float value);
-void updateBatteryVoltage(float value);
+void updateAirPressure(float value);
+void updateAirTemperature(float value);
 void updateBatteryPercentage(int percent);
-void updatePH(float value);
-void updateTDS(float value);
-void updateDissolvedOxygen(float value);
-void updateTemperature(float value);
+void updateAirHumidity(float value);
+void updateWindSpeed(float value);
+void updateWindDirection(float value);
+void updateRainFall(float value);
 void updateSignalStrength(int level);
 void updateStatus(const char* status);
-void updateAllDisplayValues(float solar, float batt, float ph, float tds, float doVal, float temp, int signal, const char* status);
+void updateAllDisplayValues(float pressure, float temperature, float humidity, float w_speed, float w_direction, float rainfall, int signal, const char* status);
 void displaySleep();
 void displayWake();
 void displaySetBrightness(uint8_t brightness);
+int rssiToSignalLevel(int rssi);

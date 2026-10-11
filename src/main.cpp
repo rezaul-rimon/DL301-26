@@ -1,10 +1,15 @@
 #include "main.h"
 
+#include "new_added.h"
+#include "display.h"
+
 // ==================== Global Definitions ====================
 // SemaphoreHandle_t sensorMutex = NULL;
 // SemaphoreHandle_t energyMutex = NULL;
 TaskHandle_t mainTaskHandle = NULL;
 Preferences preferences;
+
+
 
 // ==================== Setup ====================
 void setup() {
@@ -76,6 +81,14 @@ void setup() {
     GSM_setup();
     // energy_meter_setup();
     // mesh_gw_setup();
+
+    //////////////////////////////////////////////////////////////////
+    if (!LittleFS.begin(true)) {
+        Serial.println("ERROR: LittleFS mount failed!");
+        return;
+    }
+    Serial.println("LittleFS mounted.");
+    //////////////////////////////////////////////////////////////////
     
     //Modbus Config
     if (!loadConfig()) {
@@ -83,6 +96,7 @@ void setup() {
             while (1) vTaskDelay(pdMS_TO_TICKS(1000));
         }
     SerialMon.printf("Config version: %d\n", config["config_version"] | 0);
+    printConfig();
 
     xTaskCreatePinnedToCore(mainTask, "MainTask", MAIN_TASK_STACK, NULL, MAIN_TASK_PRIORITY, &mainTaskHandle, 1);
 
@@ -93,6 +107,10 @@ void setup() {
 void loop() {
     // FreeRTOS scheduler takes over - nothing to do here
     vTaskDelay(pdMS_TO_TICKS(1000));
+    if (softAP_started) {
+        server.handleClient();
+        delay(2);
+    }
 }
 
 // ==================== Main Task ====================
@@ -179,6 +197,23 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
         Serial.flush();
         
         return;
+    }
+
+    if (message == "wifi_ap") {
+        WiFi.mode(WIFI_AP);
+        if (!WiFi.softAP(AP_SSID, AP_PASSWORD)) {
+            Serial.println("ERROR: SoftAP failed!");
+            return;
+        }
+        Serial.println();
+            Serial.println("SoftAP started.");
+            Serial.print("SSID: ");     Serial.println(AP_SSID);
+            Serial.print("Password: "); Serial.println(AP_PASSWORD);
+            Serial.print("IP: ");       Serial.println(WiFi.softAPIP());
+
+            setupWebServer();
+            softAP_started = true;
+            suspendAllTasks();
     }
 
     if (message == "get_sim_info") {
@@ -312,6 +347,12 @@ void publishHeartbeat() {
     int     uptime_m = millis() / 60000;
 
     bool acLine = digitalRead(ACLINE_PIN) == HIGH;
+
+    //Get Strength Level form RSSI
+    int signalLevel = rssiToSignalLevel(csq);
+
+    //Update Display Sigal Strength
+    updateSignalStrength(signalLevel);
 
     // MQTTMessage hbMsg;
     MQTTMessage hbMsg = {};     // ← zeroes retries

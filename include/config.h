@@ -15,10 +15,10 @@
 //-------------------------------------------------------//
 
 #define OTA 1  // Set to 1 for OTA mode, 0 for normal mode
-#define WORK_PACKAGE "DL301"
-#define DEVICE_TYPE "02"
-#define DEVICE_CODE_UPLOAD_DATE "260929"
-#define DEVICE_SERIAL_ID "0001"
+#define WORK_PACKAGE             "1292"
+#define DEVICE_TYPE              "03"
+#define DEVICE_CODE_UPLOAD_DATE  "261011"
+#define DEVICE_SERIAL_ID         "0001"
 
 #define UNIQUE_DEVICE_ID WORK_PACKAGE DEVICE_TYPE DEVICE_CODE_UPLOAD_DATE DEVICE_SERIAL_ID
 //=========================================================================================//

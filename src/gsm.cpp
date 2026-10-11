@@ -1,6 +1,5 @@
 #include "gsm.h"
 // #include "energy_meter.h"
-
 //These Function is gsm.h property I have redeclared it
 void publishHeartbeat();
 //=================================
@@ -106,7 +105,7 @@ bool powerCycleModem() {
 
 bool initializeModem() {
     sendLedCommand(LED_GSM_INIT);
-    // sendDisplayCommand(DISPLAY_GSM_INIT);
+    updateStatus("GSM Init...");
 
     SerialMon.println("NetworkTask: Initializing modem...");
     
@@ -132,7 +131,7 @@ bool initializeModem() {
 
 bool connectToGPRS() {
     sendLedCommand(LED_CONNECTING);
-    // sendDisplayCommand(DISPLAY_GSM_CONNECTING);
+    updateStatus("GSM Conn...");
 
     SerialMon.println("NetworkTask: Connecting to GPRS...");
     
@@ -157,7 +156,7 @@ bool connectToGPRS() {
 
 bool connectToMQTT() {
     sendLedCommand(LED_MQTT_CONNECTING);
-    // sendDisplayCommand(DISPLAY_MQTT_CONNECTING);
+    updateStatus("MQTT Conn...");
 
     SerialMon.println("NetworkTask: Connecting to MQTT...");
 
@@ -205,6 +204,7 @@ void networkTask(void* parameter) {
 
     SerialMon.println("Network Task started");
     sendLedCommand(LED_OFFLINE);
+    updateStatus("GSM OFFLINE");
 
     unsigned long lastSuccessfulOperation = 0;
     uint8_t consecutiveMqttFailures = 0;
@@ -295,6 +295,7 @@ void networkTask(void* parameter) {
                     unsigned long lastGsmErrorTime = millis();
                     while (millis() - lastGsmErrorTime < GSM_ERROR_RETRY_DELAY) {
                         sendLedCommand(LED_OFFLINE);
+                        updateStatus("GSM OFFLINE");
                         vTaskDelay(pdMS_TO_TICKS(1000));
                     }
                     gprsRetries = 0;
@@ -336,6 +337,7 @@ void networkTask(void* parameter) {
                 mqttConnected = true;
                 deviceOnline = true;
                 sendLedCommand(LED_ONLINE);
+                updateStatus("GSM ONLINE");
 
                 SerialMon.println("NetworkTask: Device ONLINE");
                 lastSuccessfulOperation = millis();
@@ -435,6 +437,7 @@ void networkTask(void* parameter) {
                             mqttConnected = false;
                             deviceOnline = false;
                             sendLedCommand(LED_OFFLINE);
+                            updateStatus("GSM OFFLINE");
                             break;
                         }
 
@@ -473,6 +476,7 @@ void networkTask(void* parameter) {
                     mqttConnected = false;
                     deviceOnline = false;
                     sendLedCommand(LED_OFFLINE);
+                    updateStatus("GSM OFFLINE");
                     SerialMon.println("NetworkTask: GPRS lost, restarting connection...");
                     break;
                 }
@@ -506,6 +510,7 @@ void networkTask(void* parameter) {
             mqttConnected = false;
             deviceOnline = false;
             sendLedCommand(LED_OFFLINE);
+            updateStatus("GSM OFFLINE");
 
             SerialMon.println("NetworkTask: Connection lost, restarting...");
             delay(3000);
@@ -521,7 +526,7 @@ void networkTask(void* parameter) {
 void otaTask(void* parameter) {
     SerialMon.println("OTA Task started");
     sendLedCommand(LED_OTA_IN_PROGRESS);
-    // sendDisplayCommand(DISPLAY_OTA);
+    updateStatus("OTA Running...");
 
     suspendAllTasks();
 

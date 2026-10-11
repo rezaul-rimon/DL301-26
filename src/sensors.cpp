@@ -76,7 +76,7 @@ void readAllSensorsAndPublish() {
     JsonArray sensors = config["sensors"];
 
     for (JsonObject sensor : sensors) {
-        if (!(sensor["sensor_enable"] | true)) continue;
+        if (!(sensor["enabled"] | true)) continue;
         if (!shouldPoll(sensor)) continue;
 
         const char *type = sensor["type"] | "modbus";
@@ -169,3 +169,4 @@ void readAllSensorsAndPublish() {
     Serial.println("[SENSORS] --- cycle done ---");
     Serial.flush();
 }
+

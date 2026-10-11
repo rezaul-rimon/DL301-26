@@ -25,6 +25,7 @@ void rs485TxMode();
 void rs485RxMode();
 
 bool loadConfig();
+void printConfig();
 void configureRS485(JsonObject modbus);
 
 bool readRegisters(uint8_t slaveId,
