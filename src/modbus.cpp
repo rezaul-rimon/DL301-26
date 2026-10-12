@@ -755,7 +755,7 @@ bool readModbusSensor(JsonObject sensor, ChannelWriter &w) {
         }
 
         const char *batchType =
-            modbus["batch_reg_type"updateAirTemperature] | "HOLDING";
+            modbus["batch_reg_type"] | "HOLDING";
 
         uint8_t fc = 0x04;
         if (strcasecmp(batchType, "holding") == 0) {
