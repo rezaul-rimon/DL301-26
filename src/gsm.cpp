@@ -1,5 +1,6 @@
 #include "gsm.h"
 // #include "energy_meter.h"
+#include "sensors.h"
 //These Function is gsm.h property I have redeclared it
 void publishHeartbeat();
 //=================================
@@ -344,8 +345,9 @@ void networkTask(void* parameter) {
 
                 // Send initial heartbeat + energy data
                 publishHeartbeat();
-                vTaskDelay(pdMS_TO_TICKS(100));
+                vTaskDelay(pdMS_TO_TICKS(1000));
                 // publishEnergyData();
+                readAllSensorsAndPublish();
                 vTaskDelay(pdMS_TO_TICKS(100));
 
                 unsigned long lastConnectionCheck = millis();

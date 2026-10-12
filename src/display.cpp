@@ -307,6 +307,9 @@ static void displayHomePage() {
 // Public functions
 // ============================================================
 void Display_setup() {
+
+    pinMode(DISPLAY_PIN, INPUT);
+
     SPI.begin(OLED_CLK, -1, OLED_MOSI, OLED_CS);
     if (!display.begin(SSD1306_SWITCHCAPVCC)) {
         Serial.println("SSD1306 initialization failed!");
@@ -477,6 +480,12 @@ void displayTask(void* parameter) {
             display.ssd1306_command(SSD1306_DISPLAYOFF);
             wakeTimeout = 0;
         }
+
+        buttonState = digitalRead(DISPLAY_PIN);
+
+        Serial.println(buttonState);
+
+
     }
 }
 

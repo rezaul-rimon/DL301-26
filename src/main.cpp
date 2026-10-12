@@ -9,7 +9,8 @@
 TaskHandle_t mainTaskHandle = NULL;
 Preferences preferences;
 
-
+unsigned long HEARTBEAT_INTERVAL;
+unsigned long DATA_INTERVAL;
 
 // ==================== Setup ====================
 void setup() {
@@ -38,7 +39,14 @@ void setup() {
     #if OTA
         preferences.begin("device", true);
         DEVICE_ID = preferences.getString("DID", MAC_FALLBACK_ID);
+
+        HEARTBEAT_INTERVAL = preferences.getULong("hb_inv", 180000);
+        DATA_INTERVAL      = preferences.getULong("dt_inv", 120000);
+
         preferences.end();
+
+        Serial.print("HB Interval: "); Serial.println(HEARTBEAT_INTERVAL);
+        Serial.print("PUB Interval: "); Serial.println(DATA_INTERVAL);
         SerialMon.println("[OTA MODE] Read-only mode: DEVICE_ID = " + DEVICE_ID);
     #else
         preferences.begin("device", false);
@@ -181,10 +189,71 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
     message.replace(" ", "");
     SerialMon.println("📥 Message: " + message);
 
+    if (message.startsWith("set_hb:")) {
+        unsigned long newInterval = message.substring(7).toInt();
+
+        if (newInterval >= 15 && newInterval <= 600) {
+            newInterval = newInterval * 1000;
+            preferences.begin("device", false);  // Read/write mode
+            preferences.putULong("hb_inv", newInterval);
+            preferences.end();
+            HEARTBEAT_INTERVAL = newInterval;
+
+            MQTTMessage response = {};     // ← zeroes retries
+            snprintf(response.topic, sizeof(response.topic), "%s", MQTT_PUB.c_str());
+            snprintf(response.payload, sizeof(response.payload), "['Successfully set limit: %s']", String(newInterval).c_str());
+            sendLedCommand(LED_PING_ACK);
+            xQueueSend(mqttPublishQueue, &response, pdMS_TO_TICKS(100));
+
+            // ESP.restart();
+        }
+        else {
+            Serial.println("interval time limit exeeded! [15-600]");
+            MQTTMessage response2 = {};     // ← zeroes retries
+            snprintf(response2.topic, sizeof(response2.topic), "%s", MQTT_PUB.c_str());
+            snprintf(response2.payload, sizeof(response2.payload), "['limit exeeded (15-600)']");
+            sendLedCommand(LED_PING_ACK);
+            xQueueSend(mqttPublishQueue, &response2, pdMS_TO_TICKS(100));
+        }
+    }
+
+    if (message.startsWith("set_pub:")) {
+        unsigned long newInterval = message.substring(8).toInt();
+
+        if (newInterval >= 30 && newInterval <= 900) {
+            newInterval = newInterval * 1000;
+            preferences.begin("device", false);
+            preferences.putULong("dt_inv", newInterval);
+            preferences.end();
+            DATA_INTERVAL = newInterval;
+
+            MQTTMessage response = {};     // ← zeroes retries
+            snprintf(response.topic, sizeof(response.topic), "%s", MQTT_PUB.c_str());
+            snprintf(response.payload, sizeof(response.payload), "['Successfully set limit: %s']", String(newInterval).c_str());
+            sendLedCommand(LED_PING_ACK);
+            xQueueSend(mqttPublishQueue, &response, pdMS_TO_TICKS(100));
+            // ESP.restart();
+        }
+        else {
+            Serial.println("interval time limit exeeded! [30-900]");
+            MQTTMessage response2 = {};     // ← zeroes retries
+            snprintf(response2.topic, sizeof(response2.topic), "%s", MQTT_PUB.c_str());
+            snprintf(response2.payload, sizeof(response2.payload), "['limit exeeded (30-900)']");
+            sendLedCommand(LED_PING_ACK);
+            xQueueSend(mqttPublishQueue, &response2, pdMS_TO_TICKS(100));
+        }
+    }
+
     if (message == "ping") {
         SerialMon.println("MQTT Command: Ping received");
         publishHeartbeat();
         return;
+    }
+
+    if (message == "restart") {
+        Serial.println("Esp Restarting ...");
+        vTaskDelay(pdMS_TO_TICKS(1000));
+        ESP.restart();
     }
 
     if (message == "data") {

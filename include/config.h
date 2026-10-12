@@ -9,8 +9,8 @@
 #include <esp_task_wdt.h>
 
 // ==================== Configuration ====================
-#define HW_VERSION "DL301-26.0.1"
-#define FW_VERSION "DL301-26.0.1"
+#define HW_VERSION "v1.2610.1"
+#define FW_VERSION "v1.2610.2"
 #define OTA_DATE "260920"
 //-------------------------------------------------------//
 
@@ -44,10 +44,11 @@ extern String MAC_FALLBACK_ID;
 #define OFF LOW
 
 // Timing Configuration (const variables are okay in header)
-const unsigned long HEARTBEAT_INTERVAL = 5 * 60 * 1000UL;  // 5 minute
+
+// unsigned long HEARTBEAT_INTERVAL;
 extern unsigned long lastHeartbeatTime;
 
-const unsigned long DATA_INTERVAL = 5 * 60 * 1000UL;  // 5 minute
+// unsigned long DATA_INTERVAL;
 extern unsigned long lastDataTime;
 
 const unsigned long MAIN_TASK_PRIORITY = 2;

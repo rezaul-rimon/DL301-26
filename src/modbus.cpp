@@ -755,7 +755,7 @@ bool readModbusSensor(JsonObject sensor, ChannelWriter &w) {
         }
 
         const char *batchType =
-            modbus["batch_reg_type"] | "HOLDING";
+            modbus["batch_reg_type"updateAirTemperature] | "HOLDING";
 
         uint8_t fc = 0x04;
         if (strcasecmp(batchType, "holding") == 0) {
@@ -852,25 +852,25 @@ bool readModbusSensor(JsonObject sensor, ChannelWriter &w) {
             appendChannel(w, alias, value, unit);
 
             // Update the matching display field.
-            if (strcmp(alias, "airPressure") == 0) {
+            if (strcmp(alias, "pressure") == 0) {
                 updateAirPressure(value);
             }
-            else if (strcmp(alias, "airTemperature") == 0) {
+            else if (strcmp(alias, "temperature") == 0) {
                 updateAirTemperature(value);
             }
             // else if (strcmp(alias, "batteryPercentage") == 0) {
             //     updateBatteryPercentage((int)(value + 0.5f));
             // }
-            else if (strcmp(alias, "airHumidity") == 0) {
+            else if (strcmp(alias, "humidity") == 0) {
                 updateAirHumidity(value);
             }
-            else if (strcmp(alias, "windSpeed") == 0) {
+            else if (strcmp(alias, "wind_speed") == 0) {
                 updateWindSpeed(value);
             }
-            else if (strcmp(alias, "windDirection") == 0) {
+            else if (strcmp(alias, "wind_direction") == 0) {
                 updateWindDirection(value);
             }
-            else if (strcmp(alias, "rainFall") == 0) {
+            else if (strcmp(alias, "rain_fall") == 0) {
                 updateRainFall(value);
             }
         }
@@ -878,25 +878,25 @@ bool readModbusSensor(JsonObject sensor, ChannelWriter &w) {
             Serial.printf("%-22s : ERROR\n", alias);
             appendChannelError(w, alias, unit);
 
-            if (strcmp(alias, "airPressure") == 0) {
+            if (strcmp(alias, "pressure") == 0) {
                 updateAirPressure(NAN);
             }
-            else if (strcmp(alias, "airTemperature") == 0) {
+            else if (strcmp(alias, "temperature") == 0) {
                 updateAirTemperature(NAN);
             }
-            else if (strcmp(alias, "batteryPercentage") == 0) {
-                updateBatteryPercentage(-1);
-            }
-            else if (strcmp(alias, "airHumidity") == 0) {
+            // else if (strcmp(alias, "batteryPercentage") == 0) {
+            //     updateBatteryPercentage(-1);
+            // }
+            else if (strcmp(alias, "humidity") == 0) {
                 updateAirHumidity(NAN);
             }
-            else if (strcmp(alias, "windSpeed") == 0) {
+            else if (strcmp(alias, "wind_speed") == 0) {
                 updateWindSpeed(NAN);
             }
-            else if (strcmp(alias, "windDirection") == 0) {
+            else if (strcmp(alias, "wind_direction") == 0) {
                 updateWindDirection(NAN);
             }
-            else if (strcmp(alias, "rainFall") == 0) {
+            else if (strcmp(alias, "rain_fall") == 0) {
                 updateRainFall(NAN);
             }
         }

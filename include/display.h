@@ -10,6 +10,10 @@
 #define SCREEN_WIDTH    128
 #define SCREEN_HEIGHT   64
 
+#define DISPLAY_PIN 36
+
+bool buttonState = false;
+
 //main (follow here)
 // #define OLED_MOSI       23
 // #define OLED_CLK        18

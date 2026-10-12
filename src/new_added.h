@@ -4,7 +4,7 @@
 #include <LittleFS.h>
 #include <ArduinoJson.h>
 
-#define AP_SSID     "Modbus_DL_New"
+#define AP_SSID     "DL301-26"
 #define AP_PASSWORD "12345678"
 
 #define MAX_SENSORS     12
@@ -57,7 +57,7 @@ bool saveConfig()
     file.close();
     Serial.println("Configuration saved.");
     Serial.println("Device Restarting ...");
-    delay(1200);
+    vTaskDelay(pdMS_TO_TICKS(1200));
     ESP.restart();
     return true;
 }
