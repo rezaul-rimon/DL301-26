@@ -12,7 +12,7 @@
 
 #define DISPLAY_PIN 36
 
-bool buttonState = false;
+
 
 //main (follow here)
 // #define OLED_MOSI       23

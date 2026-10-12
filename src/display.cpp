@@ -481,9 +481,7 @@ void displayTask(void* parameter) {
             wakeTimeout = 0;
         }
 
-        buttonState = digitalRead(DISPLAY_PIN);
 
-        Serial.println(buttonState);
 
 
     }
