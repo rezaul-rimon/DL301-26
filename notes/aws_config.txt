@@ -1,0 +1,381 @@
+
+========== CONFIGURATION ==========
+{
+  "config_version": 3,
+  "device": {
+    "id": "DL002",
+    "name": "Industrial Data Logger"
+  },
+  "network": {
+    "apn": "",
+    "apn_user": "",
+    "apn_pass": "",
+    "broker": "",
+    "broker_port": 1883,
+    "mqtt_user": "",
+    "mqtt_pass": "",
+    "pub_topic": "",
+    "sub_topic": "",
+    "ack_topic": ""
+  },
+  "sensors": [
+    {
+      "id": 1,
+      "name": "Wind Speed",
+      "sensor_enable": true,
+      "sd_logging": false,
+      "poll_interval_ms": 5000,
+      "sensor_type": "MODBUS",
+      "modbus": {
+        "slave_id": 1,
+        "baud": 9600,
+        "parity": "NONE",
+        "data_bits": 8,
+        "stop_bits": 1,
+        "retry_attempts": 3,
+        "recv_timeout_ms": 1000,
+        "min_interval_ms": 2000,
+        "batch_read": false,
+        "batch_start": "0x0000",
+        "batch_reg_type": "HOLDING",
+        "batch_qty": 1
+      },
+      "channels": [
+        {
+          "id": 1,
+          "alias": "wind_speed",
+          "description": "Wind Speed",
+          "unit": "ms",
+          "register_address": "0x0000",
+          "register_type": "HOLDING",
+          "scale_factor": 0.1,
+          "offset": 0,
+          "data_type": "INT16",
+          "register_width": 1,
+          "bit_index": -1,
+          "byte_order": "BIG_ENDIAN"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "name": "Wind Direction",
+      "sensor_enable": true,
+      "sd_logging": false,
+      "poll_interval_ms": 5000,
+      "sensor_type": "MODBUS",
+      "modbus": {
+        "slave_id": 2,
+        "baud": 9600,
+        "parity": "NONE",
+        "data_bits": 8,
+        "stop_bits": 1,
+        "retry_attempts": 3,
+        "recv_timeout_ms": 1000,
+        "min_interval_ms": 2000,
+        "batch_read": false,
+        "batch_start": "0x0000",
+        "batch_reg_type": "HOLDING",
+        "batch_qty": 1
+      },
+      "channels": [
+        {
+          "id": 1,
+          "alias": "wind_direction",
+          "description": "Wind Direction",
+          "unit": "degree",
+          "register_address": "0x0000",
+          "register_type": "HOLDING",
+          "scale_factor": 1,
+          "offset": 0,
+          "data_type": "INT16",
+          "register_width": 1,
+          "bit_index": -1,
+          "byte_order": "BIG_ENDIAN"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "name": "PTH",
+      "sensor_enable": true,
+      "sd_logging": false,
+      "poll_interval_ms": 5000,
+      "sensor_type": "MODBUS",
+      "modbus": {
+        "slave_id": 3,
+        "baud": 9600,
+        "parity": "NONE",
+        "data_bits": 8,
+        "stop_bits": 1,
+        "retry_attempts": 3,
+        "recv_timeout_ms": 1000,
+        "min_interval_ms": 2000,
+        "batch_read": true,
+        "batch_start": "0x0000",
+        "batch_reg_type": "HOLDING",
+        "batch_qty": 3
+      },
+      "channels": [
+        {
+          "id": 1,
+          "alias": "pressure",
+          "description": "Air Pressure",
+          "unit": "hPa",
+          "register_address": "0x0000",
+          "register_type": "HOLDING",
+          "scale_factor": 0.1,
+          "offset": 0,
+          "data_type": "INT16",
+          "register_width": 1,
+          "bit_index": -1,
+          "byte_order": "BIG_ENDIAN"
+        },
+        {
+          "id": 2,
+          "alias": "temperature",
+          "description": "Air Temperature",
+          "unit": "°C",
+          "register_address": "0x0001",
+          "register_type": "HOLDING",
+          "scale_factor": 0.1,
+          "offset": 0,
+          "data_type": "INT16",
+          "register_width": 1,
+          "bit_index": -1,
+          "byte_order": "BIG_ENDIAN"
+        },
+        {
+          "id": 3,
+          "alias": "humidity",
+          "description": "Air Humidity",
+          "unit": "%RH",
+          "register_address": "0x0002",
+          "register_type": "HOLDING",
+          "scale_factor": 0.1,
+          "offset": 0,
+          "data_type": "INT16",
+          "register_width": 1,
+          "bit_index": -1,
+          "byte_order": "BIG_ENDIAN"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "name": "Rain Gauge",
+      "sensor_enable": true,
+      "sd_logging": false,
+      "poll_interval_ms": 5000,
+      "sensor_type": "MODBUS",
+      "modbus": {
+        "slave_id": 4,
+        "baud": 9600,
+        "parity": "NONE",
+        "data_bits": 8,
+        "stop_bits": 1,
+        "retry_attempts": 3,
+        "recv_timeout_ms": 1000,
+        "min_interval_ms": 2000,
+        "batch_read": false,
+        "batch_start": "0x0000",
+        "batch_reg_type": "HOLDING",
+        "batch_qty": 1
+      },
+      "channels": [
+        {
+          "id": 1,
+          "alias": "rain_fall",
+          "description": "Rain Fall",
+          "unit": "mm",
+          "register_address": "0x0000",
+          "register_type": "HOLDING",
+          "scale_factor": 0.1,
+          "offset": 0,
+          "data_type": "INT16",
+          "register_width": 1,
+          "bit_index": -1,
+          "byte_order": "BIG_ENDIAN"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "name": "Lightning Detector",
+      "sensor_enable": true,
+      "sd_logging": false,
+      "poll_interval_ms": 5000,
+      "sensor_type": "MODBUS",
+      "modbus": {
+        "slave_id": 5,
+        "baud": 9600,
+        "parity": "NONE",
+        "data_bits": 8,
+        "stop_bits": 1,
+        "retry_attempts": 3,
+        "recv_timeout_ms": 1000,
+        "min_interval_ms": 100,
+        "batch_read": true,
+        "batch_start": "0x0000",
+        "batch_reg_type": "HOLDING",
+        "batch_qty": 12
+      },
+      "channels": [
+        {
+          "id": 1,
+          "alias": "verify_status",
+          "description": "Sensor verify status",
+          "unit": "",
+          "register_address": "0x0000",
+          "register_type": "INPUT",
+          "scale_factor": 1,
+          "offset": 0,
+          "data_type": "UINT16",
+          "register_width": 1,
+          "bit_index": -1,
+          "byte_order": "BIG_ENDIAN"
+        },
+        {
+          "id": 2,
+          "alias": "strike_last_read",
+          "description": "Last strike timestamp",
+          "unit": "",
+          "register_address": "0x0001",
+          "register_type": "INPUT",
+          "scale_factor": 1,
+          "offset": 0,
+          "data_type": "UINT16",
+          "register_width": 1,
+          "bit_index": -1,
+          "byte_order": "BIG_ENDIAN"
+        },
+        {
+          "id": 3,
+          "alias": "noise_last_read",
+          "description": "Last noise timestamp",
+          "unit": "",
+          "register_address": "0x0002",
+          "register_type": "INPUT",
+          "scale_factor": 1,
+          "offset": 0,
+          "data_type": "UINT16",
+          "register_width": 1,
+          "bit_index": -1,
+          "byte_order": "BIG_ENDIAN"
+        },
+        {
+          "id": 4,
+          "alias": "disturber_last_read",
+          "description": "Last disturber timestamp",
+          "unit": "",
+          "register_address": "0x0003",
+          "register_type": "INPUT",
+          "scale_factor": 1,
+          "offset": 0,
+          "data_type": "UINT16",
+          "register_width": 1,
+          "bit_index": -1,
+          "byte_order": "BIG_ENDIAN"
+        },
+        {
+          "id": 5,
+          "alias": "distance_km",
+          "description": "Distance to last strike",
+          "unit": "",
+          "register_address": "0x0004",
+          "register_type": "INPUT",
+          "scale_factor": 1,
+          "offset": 0,
+          "data_type": "UINT16",
+          "register_width": 1,
+          "bit_index": -1,
+          "byte_order": "BIG_ENDIAN"
+        },
+        {
+          "id": 6,
+          "alias": "strike_energy",
+          "description": "Last strike energy",
+          "unit": "",
+          "register_address": "0x0005",
+          "register_type": "INPUT",
+          "scale_factor": 1,
+          "offset": 0,
+          "data_type": "UINT32",
+          "register_width": 1,
+          "bit_index": -1,
+          "byte_order": "BIG_ENDIAN"
+        },
+        {
+          "id": 7,
+          "alias": "strikes_10min",
+          "description": "Strikes in last 10 minutes",
+          "unit": "",
+          "register_address": "0x0007",
+          "register_type": "INPUT",
+          "scale_factor": 1,
+          "offset": 0,
+          "data_type": "UINT16",
+          "register_width": 1,
+          "bit_index": -1,
+          "byte_order": "BIG_ENDIAN"
+        },
+        {
+          "id": 8,
+          "alias": "strikes_30min",
+          "description": "Strikes in last 30 minutes",
+          "unit": "",
+          "register_address": "0x0008",
+          "register_type": "INPUT",
+          "scale_factor": 1,
+          "offset": 0,
+          "data_type": "UINT16",
+          "register_width": 1,
+          "bit_index": -1,
+          "byte_order": "BIG_ENDIAN"
+        },
+        {
+          "id": 9,
+          "alias": "strikes_60min",
+          "description": "Strikes in last 60 minutes",
+          "unit": "",
+          "register_address": "0x0009",
+          "register_type": "INPUT",
+          "scale_factor": 1,
+          "offset": 0,
+          "data_type": "UINT16",
+          "register_width": 1,
+          "bit_index": -1,
+          "byte_order": "BIG_ENDIAN"
+        },
+        {
+          "id": 10,
+          "alias": "noise_60min",
+          "description": "Noise events in last 60 minutes",
+          "unit": "",
+          "register_address": "0x000A",
+          "register_type": "INPUT",
+          "scale_factor": 1,
+          "offset": 0,
+          "data_type": "UINT16",
+          "register_width": 1,
+          "bit_index": -1,
+          "byte_order": "BIG_ENDIAN"
+        },
+        {
+          "id": 11,
+          "alias": "disturber_60min",
+          "description": "Disturber events in last 60 minutes",
+          "unit": "",
+          "register_address": "0x000B",
+          "register_type": "INPUT",
+          "scale_factor": 1,
+          "offset": 0,
+          "data_type": "UINT16",
+          "register_width": 1,
+          "bit_index": -1,
+          "byte_order": "BIG_ENDIAN"
+        }
+      ]
+    }
+  ]
+}

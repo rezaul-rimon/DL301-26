@@ -1,11 +1,9 @@
 #include "main.h"
 
-#include "new_added.h"
+#include "config_portal.h"
 #include "display.h"
 
 // ==================== Global Definitions ====================
-// SemaphoreHandle_t sensorMutex = NULL;
-// SemaphoreHandle_t energyMutex = NULL;
 TaskHandle_t mainTaskHandle = NULL;
 Preferences preferences;
 
@@ -18,7 +16,7 @@ void setup() {
     delay(100);
 
     SerialMon.println("\n====================================");
-    SerialMon.println(" == EM302-26 for Smart Home ==");
+    SerialMon.println(" == DL301-26 for BWDB AWS ==");
     SerialMon.println("------------------------------------");
     SerialMon.printf ("  ==   FW Version: %s   ==", FW_VERSION);
     SerialMon.println();
@@ -189,8 +187,8 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
     message.replace(" ", "");
     SerialMon.println("📥 Message: " + message);
 
-    if (message.startsWith("set_hb:")) {
-        unsigned long newInterval = message.substring(7).toInt();
+    if (message.startsWith("set_hb_interval:")) {
+        unsigned long newInterval = message.substring(16).toInt();
 
         if (newInterval >= 15 && newInterval <= 600) {
             newInterval = newInterval * 1000;
@@ -217,8 +215,8 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
         }
     }
 
-    if (message.startsWith("set_pub:")) {
-        unsigned long newInterval = message.substring(8).toInt();
+    if (message.startsWith("set_pub_interval:")) {
+        unsigned long newInterval = message.substring(17).toInt();
 
         if (newInterval >= 30 && newInterval <= 900) {
             newInterval = newInterval * 1000;

@@ -1,7 +1,6 @@
 #pragma once
 
-#define DISPLAY_WAKE_TIMEOUT_MS   60 * 1000   // or 20000 for 30 seconds
-
+#define DISPLAY_WAKE_TIMEOUT_MS   30 * 1000   // or 20000 for 30 seconds
 #include <Arduino.h>
 #include <SPI.h>
 #include <Adafruit_GFX.h>
@@ -10,16 +9,9 @@
 #define SCREEN_WIDTH    128
 #define SCREEN_HEIGHT   64
 
-#define DISPLAY_PIN 36
+#define DISPLAY_PIN 35
 
-bool buttonState = false;
-
-//main (follow here)
-// #define OLED_MOSI       23
-// #define OLED_CLK        18
-// #define OLED_DC         13
-// #define OLED_CS         5
-// #define OLED_RST        14
+extern bool buttonState;
 
 //data logger - AWS
 #define OLED_MOSI       23
@@ -27,13 +19,6 @@ bool buttonState = false;
 #define OLED_DC         26
 #define OLED_CS         25
 #define OLED_RST        2
-
-//for testing board
-// #define OLED_MOSI       23
-// #define OLED_CLK        18
-// #define OLED_DC         14
-// #define OLED_CS         26
-// #define OLED_RST        13
 
 #define DISPLAY_TASK_PRIORITY   1
 #define DISPLAY_CMD_QUEUE_SIZE  10

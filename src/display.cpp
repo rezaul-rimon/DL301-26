@@ -3,6 +3,8 @@
 #include "display.h"
 #include <Arduino.h>
 
+bool buttonState = false;  // Global variable to track button state
+
 // ============================================================
 // Global object definitions
 // ============================================================
@@ -146,68 +148,6 @@ static void displayWelcomeScreen() {
     display.display();
     delay(5000);
 }
-
-// static void displayHomePage() {
-//     display.clearDisplay();
-//     display.setTextColor(SSD1306_WHITE);
-//     display.setTextSize(1);
-
-//     const int LEFT  = 2;
-//     const int RIGHT = 125;
-//     const int DIV   = 63;
-
-//     // ========== TOP ROW: Battery (left), Heading (center), Signal (right) ==========
-//     drawBatteryIcon(displayData.batteryPercent);   // ✅ use percentage
-//     drawSignalBars(displayData.signalLevel);
-
-//     const char* title = "DMA_AWS";
-//     int16_t x1, y1;
-//     uint16_t w, h;
-//     display.getTextBounds(title, 0, 0, &x1, &y1, &w, &h);
-//     display.setCursor((SCREEN_WIDTH - w) / 2, 1);
-//     display.print(title);
-
-//     display.drawLine(LEFT, 10, RIGHT, 10, SSD1306_WHITE);
-
-//     display.setCursor(LEFT, 15);
-//     display.print("Status: ");
-//     display.print(displayData.statusText);
-
-//     display.drawLine(LEFT, 24, RIGHT, 24, SSD1306_WHITE);
-
-//     char buffer[20];
-
-//     snprintf(buffer, sizeof(buffer), "Prs:%.1fV", displayData.airPressure);
-//     display.setCursor(LEFT, 27);
-//     display.print(buffer);
-
-//     snprintf(buffer, sizeof(buffer), "Spd:%.2fV", displayData.airTemperature);
-//     display.setCursor(67, 27);
-//     display.print(buffer);
-
-//     display.drawLine(DIV, 25, DIV, 35, SSD1306_WHITE);
-//     display.drawLine(LEFT, 38, RIGHT, 38, SSD1306_WHITE);
-
-//     snprintf(buffer, sizeof(buffer), "Hum:%.2f", displayData.airHumidity);
-//     display.setCursor(LEFT, 41);
-//     display.print(buffer);
-
-//     snprintf(buffer, sizeof(buffer), "Tmp:%.2f", displayData.rainFall);
-//     display.setCursor(LEFT, 52);
-//     display.print(buffer);
-
-//     snprintf(buffer, sizeof(buffer), "SPD:%.0f", displayData.windSpeed);
-//     display.setCursor(67, 41);
-//     display.print(buffer);
-
-//     snprintf(buffer, sizeof(buffer), "DO:%.2f", displayData.windDirection);
-//     display.setCursor(67, 52);
-//     display.print(buffer);
-
-//     display.drawLine(DIV, 39, DIV, 63, SSD1306_WHITE);
-
-//     display.display();
-// }
 
 static void displayHomePage() {
     display.clearDisplay();
@@ -460,7 +400,7 @@ void displayTask(void* parameter) {
                 case DISPLAY_HOME:
                 case DISPLAY_UPDATE_HOME:
                     // Wake display if not already awake, then reset timeout
-                    display.ssd1306_command(SSD1306_DISPLAYON);
+                    // display.ssd1306_command(SSD1306_DISPLAYON);
                     wakeTimeout = millis() + DISPLAY_WAKE_TIMEOUT_MS;
                     displayHomePage();
                     break;
@@ -481,10 +421,15 @@ void displayTask(void* parameter) {
             wakeTimeout = 0;
         }
 
-        buttonState = digitalRead(DISPLAY_PIN);
-
-        Serial.println(buttonState);
-
+        if(digitalRead(DISPLAY_PIN) == LOW && !buttonState) {
+            buttonState = true;
+            Serial.println("Button released");
+        }
+        else if(digitalRead(DISPLAY_PIN) == HIGH && buttonState) {
+            buttonState = false;
+            Serial.println("Button pressed, waking display");
+            sendDisplayCommand(DISPLAY_WAKE);
+        }
 
     }
 }

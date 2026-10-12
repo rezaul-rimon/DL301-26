@@ -2,12 +2,10 @@
 
 #include <Arduino.h>
 #include "config.h"
-// #include "mesh_gw.h"
 #include "led.h"
 #include "gsm.h"
 #include "display.h"
 #include "sensors.h"
-// #include "energy_meter.h"
 #include "modbus.h"
 #include <freertos/FreeRTOS.h>
 #include <esp_task_wdt.h>

@@ -22,24 +22,11 @@ String getTimestamp14() {
              (unsigned long)s);
     return String(buf);
 
-    // ============================================================
-    // WHEN YOU ADD AN RTC (DS3231 / PCF8523 etc.):
-    // ============================================================
-    // DateTime now = rtc.now();
-    // char buf[16];
-    // snprintf(buf, sizeof(buf), "%02d%02d%02d%02d%02d%02d",
-    //          now.year() % 100, now.month(), now.day(),
-    //          now.hour(), now.minute(), now.second());
-    // return String(buf);
 }
 
 bool getAOS() {
     // ============================================================
     // REPLACE this with your real AOS source
     // ============================================================
-    // Examples:
-    //   return deviceArmed;
-    //   return gpsFixValid;
-    //   return (digitalRead(ACLINE_PIN) == HIGH);
     return false;   // placeholder
 }
