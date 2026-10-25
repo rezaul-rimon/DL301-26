@@ -11,7 +11,7 @@
 // ==================== Configuration ====================
 #define HW_VERSION "v1.2610.1"
 #define FW_VERSION "v1.2610.2"
-#define OTA_DATE "260920"
+#define OTA_DATE "261020"
 //-------------------------------------------------------//
 
 #define OTA 1  // Set to 1 for OTA mode, 0 for normal mode

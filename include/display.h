@@ -26,6 +26,7 @@ extern bool buttonState;
 
 enum DisplayCommandType {
     DISPLAY_BOOT,
+    DISPLAY_CONFIG,
     DISPLAY_HOME,
     DISPLAY_UPDATE_HOME,
     DISPLAY_SLEEP,

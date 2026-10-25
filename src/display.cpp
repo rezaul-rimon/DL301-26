@@ -3,6 +3,13 @@
 #include "display.h"
 #include <Arduino.h>
 
+#include "main.h"
+
+unsigned long touchStartTime = 0;
+bool longPressTriggered = false;
+const unsigned long LONG_PRESS_TIME = 5000;
+
+
 bool buttonState = false;  // Global variable to track button state
 
 // ============================================================
@@ -116,6 +123,36 @@ static void displayBootAnimation() {
     display.fillRoundRect(barX + 2, barY + 2, barWidth - 4, barHeight - 4, 1, SSD1306_WHITE);
     display.display();
     delay(200);
+}
+
+void displayConfigPage() {
+    display.clearDisplay();
+    display.setTextColor(SSD1306_WHITE);
+
+    // Header - unchanged
+    display.setTextSize(3);
+    display.setCursor(43, 2);
+    display.println("DMA");
+
+    display.setTextSize(1);
+    display.setCursor(40, 30);
+    display.println("DL301-26");
+
+    // Divider
+    display.drawLine(10, 42, 118, 42, SSD1306_WHITE);
+
+    // Bold CONFIG MODE
+    display.setTextSize(1);
+    display.setTextColor(SSD1306_WHITE);
+
+    display.setCursor(27, 49);
+    display.print("CONFIG MODE");
+
+    // Bold effect: print again with 1-pixel offset
+    // display.setCursor(28, 49);
+    // display.print("CONFIG MODE");
+
+    display.display();
 }
 
 static void displayWelcomeScreen() {
@@ -387,6 +424,12 @@ void displayTask(void* parameter) {
                     displayBootAnimation();
                     break;
 
+                case DISPLAY_CONFIG:
+                    display.ssd1306_command(SSD1306_DISPLAYON);
+                    wakeTimeout = millis() + DISPLAY_WAKE_TIMEOUT_MS;
+                    displayBootAnimation();
+                    break;
+
                 case DISPLAY_SLEEP:
                     display.ssd1306_command(SSD1306_DISPLAYOFF);
                     wakeTimeout = 0;
@@ -421,15 +464,44 @@ void displayTask(void* parameter) {
             wakeTimeout = 0;
         }
 
-        if(digitalRead(DISPLAY_PIN) == LOW && !buttonState) {
-            buttonState = true;
-            Serial.println("Button released");
-        }
-        else if(digitalRead(DISPLAY_PIN) == HIGH && buttonState) {
-            buttonState = false;
-            Serial.println("Button pressed, waking display");
-            sendDisplayCommand(DISPLAY_WAKE);
-        }
+// ===== TOUCH DETECTION =====
+bool touchDetected = (digitalRead(DISPLAY_PIN) == HIGH);
+
+// 1. Touch starts
+if (touchDetected && !buttonState) {
+    buttonState = true;
+    touchStartTime = millis();
+    longPressTriggered = false;
+
+    Serial.println("Touch detected - waking display");
+
+    // Wake display immediately because we are already in displayTask
+    display.ssd1306_command(SSD1306_DISPLAYON);
+    wakeTimeout = millis() + DISPLAY_WAKE_TIMEOUT_MS;
+}
+
+// 2. Touch is being held
+if (touchDetected &&
+    buttonState &&
+    !longPressTriggered &&
+    (millis() - touchStartTime >= LONG_PRESS_TIME)) {
+
+    longPressTriggered = true;
+
+    Serial.println("Long press detected! Opening configuration...");
+    displayConfigPage();
+    dev_config();
+
+    // Refresh display timeout after returning, if desired
+    wakeTimeout = millis() + DISPLAY_WAKE_TIMEOUT_MS;
+}
+
+// 3. Touch released
+if (!touchDetected && buttonState) {
+    buttonState = false;
+
+    Serial.println("Touch released");
+}
 
     }
 }

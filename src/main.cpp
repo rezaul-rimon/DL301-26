@@ -55,6 +55,10 @@ void setup() {
             DEVICE_ID = UNIQUE_DEVICE_ID;
             preferences.putString("DID", DEVICE_ID);
         }
+
+        HEARTBEAT_INTERVAL = preferences.getULong("hb_inv", 180000);
+        DATA_INTERVAL      = preferences.getULong("dt_inv", 120000);
+        
         preferences.end();
     #endif
 
@@ -165,6 +169,24 @@ void mainTask(void* parameter) {
     }
 }
 
+void dev_config() {
+    // displayConfigPage();
+    WiFi.mode(WIFI_AP);
+    if (!WiFi.softAP(AP_SSID, AP_PASSWORD)) {
+        Serial.println("ERROR: SoftAP failed!");
+        return;
+    }
+    Serial.println();
+        Serial.println("SoftAP started.");
+        Serial.print("SSID: ");     Serial.println(AP_SSID);
+        Serial.print("Password: "); Serial.println(AP_PASSWORD);
+        Serial.print("IP: ");       Serial.println(WiFi.softAPIP());
+
+        setupWebServer();
+        softAP_started = true;
+        suspendAllTasks();
+}
+
 //========================================================
 // ==================== MQTT Callback ====================
 //========================================================
@@ -267,20 +289,7 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
     }
 
     if (message == "wifi_ap") {
-        WiFi.mode(WIFI_AP);
-        if (!WiFi.softAP(AP_SSID, AP_PASSWORD)) {
-            Serial.println("ERROR: SoftAP failed!");
-            return;
-        }
-        Serial.println();
-            Serial.println("SoftAP started.");
-            Serial.print("SSID: ");     Serial.println(AP_SSID);
-            Serial.print("Password: "); Serial.println(AP_PASSWORD);
-            Serial.print("IP: ");       Serial.println(WiFi.softAPIP());
-
-            setupWebServer();
-            softAP_started = true;
-            suspendAllTasks();
+        dev_config();
     }
 
     if (message == "get_sim_info") {

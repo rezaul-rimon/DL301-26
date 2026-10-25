@@ -205,7 +205,7 @@ void networkTask(void* parameter) {
 
     SerialMon.println("Network Task started");
     sendLedCommand(LED_OFFLINE);
-    updateStatus("GSM OFFLINE");
+    updateStatus("Device OFFLINE");
 
     unsigned long lastSuccessfulOperation = 0;
     uint8_t consecutiveMqttFailures = 0;
@@ -296,7 +296,7 @@ void networkTask(void* parameter) {
                     unsigned long lastGsmErrorTime = millis();
                     while (millis() - lastGsmErrorTime < GSM_ERROR_RETRY_DELAY) {
                         sendLedCommand(LED_OFFLINE);
-                        updateStatus("GSM OFFLINE");
+                        updateStatus("Device OFFLINE");
                         vTaskDelay(pdMS_TO_TICKS(1000));
                     }
                     gprsRetries = 0;
@@ -338,7 +338,7 @@ void networkTask(void* parameter) {
                 mqttConnected = true;
                 deviceOnline = true;
                 sendLedCommand(LED_ONLINE);
-                updateStatus("GSM ONLINE");
+                updateStatus("Device ONLINE");
 
                 SerialMon.println("NetworkTask: Device ONLINE");
                 lastSuccessfulOperation = millis();
@@ -439,7 +439,7 @@ void networkTask(void* parameter) {
                             mqttConnected = false;
                             deviceOnline = false;
                             sendLedCommand(LED_OFFLINE);
-                            updateStatus("GSM OFFLINE");
+                            updateStatus("Device OFFLINE");
                             break;
                         }
 
@@ -478,7 +478,7 @@ void networkTask(void* parameter) {
                     mqttConnected = false;
                     deviceOnline = false;
                     sendLedCommand(LED_OFFLINE);
-                    updateStatus("GSM OFFLINE");
+                    updateStatus("Device OFFLINE");
                     SerialMon.println("NetworkTask: GPRS lost, restarting connection...");
                     break;
                 }
@@ -512,7 +512,7 @@ void networkTask(void* parameter) {
             mqttConnected = false;
             deviceOnline = false;
             sendLedCommand(LED_OFFLINE);
-            updateStatus("GSM OFFLINE");
+            updateStatus("Device OFFLINE");
 
             SerialMon.println("NetworkTask: Connection lost, restarting...");
             delay(3000);

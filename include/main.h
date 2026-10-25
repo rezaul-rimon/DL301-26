@@ -35,3 +35,4 @@ void resumeAllTasks();
 bool checkForNewFirmware();
 bool performOTAUpdate();
 bool parseURL(String url, String &host, String &path, int &port);
+void dev_config();
